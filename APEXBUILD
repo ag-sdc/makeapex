@@ -1,0 +1,28 @@
+pkgname=com.shadichy.makeapex
+pkgver=1.0.0
+pkgrel=1
+arch=('any')
+payload_fs=erofs
+
+build() {
+  echo "Building makeapex APEX..."
+}
+
+package() {
+  mkdir -p "$pkgdir/bin"
+  mkdir -p "$pkgdir/libmakeapex"
+  
+  # Copy scripts
+  cp makeapex.sh "$pkgdir/bin/makeapex"
+  cp -r libmakeapex/* "$pkgdir/libmakeapex/"
+  cp makeapex.conf "$pkgdir/"
+  if [ -f "avbtool" ]; then
+      cp avbtool "$pkgdir/"
+  fi
+  
+  # Ensure executables
+  chmod +x "$pkgdir/bin/makeapex"
+  if [ -f "$pkgdir/avbtool" ]; then
+      chmod +x "$pkgdir/avbtool"
+  fi
+}
