@@ -12,18 +12,18 @@ md5sums=('SKIP')
 
 package() {
   # Create directories
-  install -d "$pkgdir/opt/makeapex"
-  install -d "$pkgdir/usr/bin"
+  install -d "$pkgdir/vendor/makeapex"
+  install -d "$pkgdir/vendor/bin"
   
   # Copy files
-  cp -r "$srcdir/"* "$pkgdir/opt/makeapex/"
+  cp -r "$srcdir/"* "$pkgdir/vendor/makeapex/"
   
   # Ensure makeapex script is executable
-  chmod +x "$pkgdir/opt/makeapex/makeapex.sh"
-  if [ -f "$pkgdir/opt/makeapex/avbtool" ]; then
-      chmod +x "$pkgdir/opt/makeapex/avbtool"
+  chmod +x "$pkgdir/vendor/makeapex/makeapex.sh"
+  if [ -f "$pkgdir/vendor/makeapex/avbtool" ]; then
+      chmod +x "$pkgdir/vendor/makeapex/avbtool"
   fi
   
   # Create symlink
-  ln -s /opt/makeapex/makeapex.sh "$pkgdir/usr/bin/makeapex"
+  ln -s /vendor/makeapex/makeapex.sh "$pkgdir/vendor/bin/makeapex"
 }

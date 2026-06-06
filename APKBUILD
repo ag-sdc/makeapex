@@ -16,15 +16,15 @@ build() {
 }
 
 package() {
-	mkdir -p "$pkgdir"/opt/makeapex
-	mkdir -p "$pkgdir"/usr/bin
+	mkdir -p "$pkgdir"/vendor/makeapex
+	mkdir -p "$pkgdir"/vendor/bin
 	
-	cp -r "$srcdir"/* "$pkgdir"/opt/makeapex/
+	cp -r "$srcdir"/* "$pkgdir"/vendor/makeapex/
 	
-	chmod +x "$pkgdir"/opt/makeapex/makeapex.sh
-	if [ -f "$pkgdir"/opt/makeapex/avbtool ]; then
-		chmod +x "$pkgdir"/opt/makeapex/avbtool
+	chmod +x "$pkgdir"/vendor/makeapex/makeapex.sh
+	if [ -f "$pkgdir"/vendor/makeapex/avbtool ]; then
+		chmod +x "$pkgdir"/vendor/makeapex/avbtool
 	fi
 	
-	ln -s /opt/makeapex/makeapex.sh "$pkgdir"/usr/bin/makeapex
+	ln -s /vendor/makeapex/makeapex.sh "$pkgdir"/vendor/bin/makeapex
 }
