@@ -927,7 +927,7 @@ run_single_packaging() {
 	else
 		pkgdir="$pkgdirbase/$pkgname/vendor"
 	fi
-	mkdir "$pkgdir"
+	mkdir -p "$pkgdir"
 	if [[ -n $1 ]] || (( PKGFUNC )); then
 		run_package $1
 	fi
