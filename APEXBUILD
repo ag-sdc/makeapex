@@ -9,20 +9,20 @@ build() {
 }
 
 package() {
-  mkdir -p "$pkgdir/vendor/bin"
-  mkdir -p "$pkgdir/vendor/libmakeapex"
+  mkdir -p "$pkgdir/bin"
+  mkdir -p "$pkgdir/libmakeapex"
   
   # Copy scripts
-  cp makeapex.sh "$pkgdir/vendor/bin/makeapex"
-  cp -r libmakeapex/* "$pkgdir/vendor/libmakeapex/"
-  cp makeapex.conf "$pkgdir/vendor/"
+  cp makeapex.sh "$pkgdir/bin/makeapex"
+  cp -r libmakeapex/* "$pkgdir/libmakeapex/"
+  cp makeapex.conf "$pkgdir/"
   if [ -f "avbtool" ]; then
-      cp avbtool "$pkgdir/vendor/"
+      cp avbtool "$pkgdir/"
   fi
   
   # Ensure executables
-  chmod +x "$pkgdir/vendor/bin/makeapex"
-  if [ -f "$pkgdir/vendor/avbtool" ]; then
-      chmod +x "$pkgdir/vendor/avbtool"
+  chmod +x "$pkgdir/bin/makeapex"
+  if [ -f "$pkgdir/avbtool" ]; then
+      chmod +x "$pkgdir/avbtool"
   fi
 }
