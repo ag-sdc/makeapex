@@ -1,0 +1,49 @@
+#!/bin/bash
+#
+#   schema.sh - declare specific groups of apexbuild variables
+#
+#   Copyright (c) 2015-2025 Pacman Development Team <pacman-dev@lists.archlinux.org>
+#
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation; either version 2 of the License, or
+#   (at your option) any later version.
+#
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
+#
+#   You should have received a copy of the GNU General Public License
+#   along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+[[ -n "$LIBMAKEAPEX_SCHEMA_SH" ]] && return
+LIBMAKEAPEX_SCHEMA_SH=1
+
+MAKEAPEX_LIBRARY=${MAKEAPEX_LIBRARY:-"$(dirname "$0")/libmakeapex"}
+
+source "$MAKEAPEX_LIBRARY/util/util.sh"
+
+
+known_hash_algos=({ck,md5,sha{1,224,256,384,512},b2})
+
+apexbuild_schema_arrays=(arch backup checkdepends conflicts depends groups
+                        license makedepends noextract optdepends options
+                        provides replaces source validpgpkeys xdata
+                        "${known_hash_algos[@]/%/sums}")
+
+apexbuild_schema_strings=(changelog epoch install pkgbase pkgdesc pkgrel pkgver
+                         url)
+
+apexbuild_schema_arch_arrays=(checkdepends conflicts depends makedepends
+                             optdepends options provides replaces source
+                             "${known_hash_algos[@]/%/sums}")
+
+apexbuild_schema_package_overrides=(pkgdesc arch url license groups depends
+                                   optdepends provides conflicts replaces
+                                   backup options install changelog)
+
+readonly -a known_hash_algos apexbuild_schema_arrays \
+	apexbuild_schema_strings apexbuild_schema_arch_arrays \
+	apexbuild_schema_package_overrides
