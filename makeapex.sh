@@ -664,10 +664,10 @@ EOF
 	rm -f apex_payload.img
 	
 	if [[ "${payload_fs:-erofs}" == "ext4" ]]; then
-		local size_kb=$(du -sk "$pkgdir" | awk '{print $1}')
+		local size_kb=$(du -sk "$(dirname "$pkgdir")" | awk '{print $1}')
 		local size_bytes=$(( (size_kb + 2048) * 1024 ))
 		local part_size=$(( size_bytes + 1048576 ))
-		mke2fs -F -O ^has_journal -b 4096 -m 0 -t ext4 -d "$pkgdir"/ apex_payload.img $((size_bytes / 1024))K >/dev/null 2>&1
+		mke2fs -F -O ^has_journal -b 4096 -m 0 -t ext4 -d "$(dirname "$pkgdir")"/ apex_payload.img $((size_bytes / 1024))K >/dev/null 2>&1
 		
 		avbtool add_hashtree_footer \
 			--do_not_generate_fec \
@@ -676,7 +676,7 @@ EOF
 			--partition_name apex_payload \
 			--key payload_key.pem
 	else
-		mkfs.erofs -z lz4hc apex_payload.img "$pkgdir"/ >/dev/null 2>&1
+		mkfs.erofs -z lz4hc apex_payload.img "$(dirname "$pkgdir")"/ >/dev/null 2>&1
 		local img_size=$(stat -c%s apex_payload.img)
 		local part_size=$((img_size + 1048576))
 		
@@ -707,7 +707,7 @@ create_debug_package() {
 		return 0
 	fi
 
-	local pkgdir="$pkgdirbase/$pkgbase-@DEBUGSUFFIX@"
+	local pkgdir="$pkgdirbase/$pkgbase-@DEBUGSUFFIX@/vendor"
 
 	# check if we have any debug symbols to package
 	if dir_is_empty "$pkgdir/usr/lib/debug"; then
@@ -922,7 +922,11 @@ restore_package_variables() {
 }
 
 run_single_packaging() {
-	local pkgdir="$pkgdirbase/$pkgname"
+	if (( SPLITPKG )); then
+		pkgdir="$pkgdirbase/$pkgbase/vendor"
+	else
+		pkgdir="$pkgdirbase/$pkgname/vendor"
+	fi
 	mkdir "$pkgdir"
 	if [[ -n $1 ]] || (( PKGFUNC )); then
 		run_package $1
@@ -1252,7 +1256,7 @@ else
 fi
 
 # set pkgdir to something "sensible" for (not recommended) use during build()
-pkgdir="$pkgdirbase/$pkgbase"
+pkgdir="$pkgdirbase/$pkgbase/vendor"
 
 if (( GENINTEG )); then
 	mkdir -p "$srcdir"
