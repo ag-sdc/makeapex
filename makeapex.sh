@@ -41,10 +41,11 @@ unset CDPATH
 unset GREP_OPTIONS
 
 declare -r makeapex_version='1.0.0-apex'
-declare -r confdir="$(dirname "$0")"
+declare -r MAKEAPEX_DIR="$(dirname "$(readlink -f "$0")")"
+declare -r confdir="$MAKEAPEX_DIR"
 declare -r BUILDSCRIPT='APEXBUILD'
 
-MAKEAPEX_LIBRARY=${MAKEAPEX_LIBRARY:-"$(dirname "$0")/libmakeapex"}
+MAKEAPEX_LIBRARY=${MAKEAPEX_LIBRARY:-"$MAKEAPEX_DIR/libmakeapex"}
 
 # Options
 ASDEPS=0
@@ -630,9 +631,9 @@ EOF
 	fi
 	if ! command -v avbtool &> /dev/null; then
 		# Try to use local avbtool if it exists in the script directory
-		local local_avbtool="$(dirname "$0")/avbtool"
+		local local_avbtool="$MAKEAPEX_DIR/avbtool"
 		if [[ -f "$local_avbtool" ]]; then
-			export PATH="$(dirname "$0"):$PATH"
+			export PATH="$MAKEAPEX_DIR:$PATH"
 		else
 			error "avbtool not found in PATH"
 			exit 1
