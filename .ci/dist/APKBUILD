@@ -22,9 +22,6 @@ package() {
 	cp -r "$srcdir"/* "$pkgdir"/opt/makeapex/
 	
 	chmod +x "$pkgdir"/opt/makeapex/makeapex.sh
-	if [ -f "$pkgdir"/opt/makeapex/avbtool ]; then
-		chmod +x "$pkgdir"/opt/makeapex/avbtool
-	fi
 	
 	ln -s /opt/makeapex/makeapex.sh "$pkgdir"/usr/bin/makeapex
 }

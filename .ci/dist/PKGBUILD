@@ -5,8 +5,7 @@ pkgdesc="Autonomous Android APEX build system modeled after makepkg"
 arch=('any')
 url="https://github.com/shadichy/makeapex"
 license=('GPL')
-depends=('bash' 'coreutils' 'awk' 'sed' 'e2fsprogs' 'erofs-utils' 'zip' 'unzip' 'openssl' 'python')
-optdepends=('android-tools: Android SDK tools for aapt2, zipalign, apksigner')
+depends=('android-tools' 'bash' 'coreutils' 'awk' 'sed' 'e2fsprogs' 'erofs-utils' 'zip' 'unzip' 'openssl' 'python')
 source=("local://.")
 md5sums=('SKIP')
 
@@ -20,9 +19,6 @@ package() {
   
   # Ensure makeapex script is executable
   chmod +x "$pkgdir/opt/makeapex/makeapex.sh"
-  if [ -f "$pkgdir/opt/makeapex/avbtool" ]; then
-      chmod +x "$pkgdir/opt/makeapex/avbtool"
-  fi
   
   # Create symlink
   ln -s /opt/makeapex/makeapex.sh "$pkgdir/usr/bin/makeapex"
