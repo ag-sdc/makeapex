@@ -317,7 +317,7 @@ check_deps() {
 			done
 
 			if (( ! found )); then
-				for apex_dir in /apex/*/lib64 /apex/*/lib; do
+				for apex_dir in /apex/*/lib64 /apex/*/lib /apex/*/vendor/lib64 /apex/*/vendor/lib; do
 					if [[ -e "$apex_dir/$target_soname" ]]; then
 						found=1
 						break
