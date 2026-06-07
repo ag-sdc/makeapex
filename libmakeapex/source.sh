@@ -82,4 +82,10 @@ extract_sources() {
 			extract_file "$netfile"
 		fi
 	done
+
+	# Automatically map local src/ directory into build srcdir if present
+	if [[ -d "$startdir/src" && ! -e "$srcdir/src" ]]; then
+		msg2 "$(gettext "Auto-detecting local src/ directory...")"
+		ln -s "$startdir/src" "$srcdir/src"
+	fi
 }
