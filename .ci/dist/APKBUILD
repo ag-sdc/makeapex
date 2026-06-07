@@ -19,7 +19,7 @@ package() {
 	mkdir -p "$pkgdir"/opt/makeapex
 	mkdir -p "$pkgdir"/usr/bin
 	
-	cp -r "$srcdir/makeapex"/* "$pkgdir"/opt/makeapex/
+	cp -r "$srcdir/makeapex/src"/* "$pkgdir"/opt/makeapex/
 	
 	chmod +x "$pkgdir"/opt/makeapex/makeapex.sh
 	

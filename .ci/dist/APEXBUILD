@@ -17,11 +17,11 @@ package() {
   mkdir -p "$pkgdir/lib/libmakeapex"
   
   # Copy scripts
-  cp "$srcdir/makeapex/makeapex.sh" "$pkgdir/bin/makeapex"
-  cp -r "$srcdir/makeapex/libmakeapex"/* "$pkgdir/lib/libmakeapex/"
-  cp "$srcdir/makeapex/makeapex.conf" "$pkgdir/"
-  if [ -f "$srcdir/makeapex/avbtool" ]; then
-      cp "$srcdir/makeapex/avbtool" "$pkgdir/"
+  cp "$srcdir/makeapex/src/makeapex.sh" "$pkgdir/bin/makeapex"
+  cp -r "$srcdir/makeapex/src/libmakeapex"/* "$pkgdir/lib/libmakeapex/"
+  cp "$srcdir/makeapex/src/makeapex.conf" "$pkgdir/"
+  if [ -f "$srcdir/makeapex/src/avbtool" ]; then
+      cp "$srcdir/makeapex/src/avbtool" "$pkgdir/"
   fi
   
   # Ensure executables
