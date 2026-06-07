@@ -786,6 +786,15 @@ EOF
 	zipalign -f -v 4096 my_apex_unaligned.apex "$apex_file" >/dev/null
 	apksigner sign --key container.pk8 --cert container.x509.pem "$apex_file"
 
+	if [[ "${compress_apex:-false}" == "true" ]]; then
+		msg2 "$(gettext "Compressing to CAPEX format...")"
+		local capex_file="${apex_file%.apex}.capex"
+		zip -0 "$capex_file" apex_pubkey apex_manifest.json >/dev/null
+		mv "$apex_file" original_apex
+		zip -9 "$capex_file" original_apex >/dev/null
+		rm -f original_apex
+	fi
+
 	rm -f temp.apk my_apex_unaligned.apex apex_payload.img
 	rm -rf compiled
 

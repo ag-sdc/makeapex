@@ -5,6 +5,7 @@ arch=('x86_64')
 _x86_64_microarch_level=1
 payload_fs=erofs
 source=("makeapex::git+file://${startdir}/../../")
+md5sums=('SKIP')
 
 provides=('_script_makeapex')
 depends=('_binary_bash' '_binary_coreutils' '_binary_e2fsprogs' '_binary_erofs_utils' '_binary_zip' '_binary_unzip' '_binary_python' '_binary_binutils' '_binary_gcc')

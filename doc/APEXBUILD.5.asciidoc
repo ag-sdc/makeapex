@@ -84,6 +84,11 @@ and `aarch64` (ARMv8 and all above microarchitectures).
 	Specifies the underlying filesystem to use inside the APEX image.
 	Valid options are typically `ext4` or `erofs`.
 
+*compress_apex*::
+	Set this to `"true"` to generate a Compressed APEX (`.capex`) file.
+	Defaults to `"false"`. When enabled, makeapex will pack the final `.apex` 
+	file into a CAPEX zip container optimized for Android 12+ OTA distribution.
+
 *source (array)*::
 	An array of source files required to build the package. Source files
 	must either reside in the same directory as the APEXBUILD, or be a
