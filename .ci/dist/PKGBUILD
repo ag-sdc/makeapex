@@ -10,6 +10,6 @@ source=("git+http://10.249.0.1:3002/android-generic/makeapex.git")
 md5sums=('SKIP')
 
 package() {
-  cd "$srcdir/makeapex"
+  cd "$srcdir/makeapex/src"
   make DESTDIR="$pkgdir" PREFIX=/usr install
 }

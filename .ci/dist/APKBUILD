@@ -16,6 +16,6 @@ build() {
 }
 
 package() {
-	cd "$srcdir/makeapex"
+	cd "$srcdir/makeapex/src"
 	make DESTDIR="$pkgdir" PREFIX=/usr install
 }

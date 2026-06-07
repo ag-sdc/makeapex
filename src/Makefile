@@ -10,7 +10,9 @@ all:
 install:
 	install -d $(DESTDIR)$(OPTDIR)
 	install -d $(DESTDIR)$(PREFIX)/bin
-	cp -r src/* $(DESTDIR)$(OPTDIR)/
+	cp -r libmakeapex $(DESTDIR)$(OPTDIR)/
+	cp makeapex.conf $(DESTDIR)$(OPTDIR)/
+	cp makeapex.sh $(DESTDIR)$(OPTDIR)/
 	chmod +x $(DESTDIR)$(OPTDIR)/makeapex.sh
 	ln -sf $(OPTDIR)/makeapex.sh $(DESTDIR)$(PREFIX)/bin/makeapex
 
