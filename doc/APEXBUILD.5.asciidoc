@@ -35,9 +35,16 @@ recommended to prefix their name with an '_' (underscore).
 This will prevent any possible name clashes with internal makeapex variables.
 
 *pkgname*::
-	The canonical name of the package. It should strictly consist of alphanumeric
-	characters, hyphens, and periods (e.g., 'com.example.bash'). This translates 
-	to the APEX name space.
+	Either the name of the package or an array of names for split packages.
+	Valid characters for members of this array are alphanumerics, and any of the
+	following characters: "@ . _ + -". Additionally, names are not allowed to
+	start with hyphens or dots.
+
+*org*::
+	The reverse domain organization identifier (e.g., `com.example`).
+	When defined, the APEX manifest package namespace and the output filename
+	will be dynamically constructed as `$org.$pkgname`. This cleanly separates
+	domain logic from package logic, especially for split packages.
 
 *_x86_64_microarch_level* / *_aarch64_microarch_level*::
 	Specifies the required microarchitecture optimization level for virtual 

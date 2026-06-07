@@ -648,8 +648,13 @@ create_package() {
 	cd_safe "$startdir"
 	msg "$(gettext "Creating APEX package \"%s\"...")" "$pkgname"
 
+	local full_pkgname="$pkgname"
+	if [[ -n "$org" ]]; then
+		full_pkgname="${org}.${pkgname}"
+	fi
+
 	local fullver=$(get_full_version)
-	local apex_file="$PKGDEST/${pkgname}-${fullver}${PKGEXT:-.apex}"
+	local apex_file="$PKGDEST/${full_pkgname}-${fullver}${PKGEXT:-.apex}"
 	
 	[[ -f $apex_file ]] && rm -f "$apex_file"
 
@@ -661,7 +666,7 @@ create_package() {
 		cat <<EOF > AndroidManifest.xml
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-  package="$pkgname" android:versionCode="1" android:versionName="$fullver">
+  package="$full_pkgname" android:versionCode="1" android:versionName="$fullver">
   <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="29"/>
   <application android:extractNativeLibs="false" android:hasCode="false" />
 </manifest>
@@ -672,7 +677,7 @@ EOF
 		cp "$custom_manifest_json" apex_manifest.json
 	else
 		echo "{" > apex_manifest.json
-		echo "  \"name\": \"$pkgname\"," >> apex_manifest.json
+		echo "  \"name\": \"$full_pkgname\"," >> apex_manifest.json
 		echo -n "  \"version\": 1" >> apex_manifest.json
 
 		if [[ -f "$pkgdirbase/.provideNativeLibs" ]]; then
@@ -938,10 +943,14 @@ install_package() {
 		if ! pkgarch=$(get_pkg_arch $pkg); then
 			continue
 		fi
-		pkglist+=("$PKGDEST/${pkg}-${fullver}-${pkgarch}${PKGEXT}")
+		local full_pkg="$pkg"
+		if [[ -n "$org" ]]; then
+			full_pkg="${org}.${pkg}"
+		fi
+		pkglist+=("$PKGDEST/${full_pkg}-${fullver}-${pkgarch}${PKGEXT}")
 
-		if [[ -f "$PKGDEST/${pkg}-@DEBUGSUFFIX@-${fullver}-${pkgarch}${PKGEXT}" ]]; then
-			pkglist+=("$PKGDEST/${pkg}-@DEBUGSUFFIX@-${fullver}-${pkgarch}${PKGEXT}")
+		if [[ -f "$PKGDEST/${full_pkg}-@DEBUGSUFFIX@-${fullver}-${pkgarch}${PKGEXT}" ]]; then
+			pkglist+=("$PKGDEST/${full_pkg}-@DEBUGSUFFIX@-${fullver}-${pkgarch}${PKGEXT}")
 		fi
 	done
 
@@ -956,7 +965,11 @@ check_build_status() {
 	if (( ! SPLITPKG )); then
 		fullver=$(get_full_version)
 		pkgarch=$(get_pkg_arch)
-		if [[ -f $PKGDEST/${pkgname}-${fullver}-${pkgarch}${PKGEXT} ]] \
+		local full_pkgname="$pkgname"
+		if [[ -n "$org" ]]; then
+			full_pkgname="${org}.${pkgname}"
+		fi
+		if [[ -f $PKGDEST/${full_pkgname}-${fullver}-${pkgarch}${PKGEXT} ]] \
 				 && ! (( FORCE || SOURCEONLY || NOBUILD || NOARCHIVE)); then
 			if (( INSTALL )); then
 				warning "$(gettext "A package has already been built, installing existing package...")"
@@ -976,7 +989,11 @@ check_build_status() {
 			if ! pkgarch=$(get_pkg_arch $pkg); then
 				continue
 			fi
-			if [[ -f $PKGDEST/${pkg}-${fullver}-${pkgarch}${PKGEXT} ]]; then
+			local full_pkg="$pkg"
+			if [[ -n "$org" ]]; then
+				full_pkg="${org}.${pkg}"
+			fi
+			if [[ -f $PKGDEST/${full_pkg}-${fullver}-${pkgarch}${PKGEXT} ]]; then
 				somepkgbuilt=1
 			else
 				allpkgbuilt=0

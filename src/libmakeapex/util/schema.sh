@@ -33,7 +33,7 @@ apexbuild_schema_arrays=(arch backup checkdepends conflicts depends groups
                         provides replaces source validpgpkeys xdata
                         "${known_hash_algos[@]/%/sums}")
 
-apexbuild_schema_strings=(changelog epoch install pkgbase pkgdesc pkgrel pkgver
+apexbuild_schema_strings=(changelog epoch install org pkgbase pkgdesc pkgrel pkgver
                          url)
 
 apexbuild_schema_arch_arrays=(checkdepends conflicts depends makedepends
