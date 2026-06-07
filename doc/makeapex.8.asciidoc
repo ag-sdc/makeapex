@@ -1,0 +1,116 @@
+makeapex(8)
+===========
+
+Name
+----
+makeapex - Android APEX build utility
+
+
+Synopsis
+--------
+'makeapex' [options] [ENVVAR=value] [ENVVAR+=value] ...
+
+
+Description
+-----------
+'makeapex' is a script to automate the building of Android APEX (Android Pony 
+EXpress) packages. The requirements for using the script are a build-capable 
+*nix platform and a custom build script for each APEX you wish to build 
+(known as an APEXBUILD). See linkman:APEXBUILD[5] for details on creating 
+your own build scripts.
+
+The advantage to a script-based build is that the work is only done once. Once
+you have the build script for a package, 'makeapex' will do the rest: download and
+validate source files, check dependencies, configure the build-time settings,
+build the payload, assemble the filesystem into a temporary root, perform 
+advanced ELF introspection for Bionic Linker mapping, generate the manifest, 
+and package the whole thing up for the Android system to use.
+
+NOTE: 'makeapex' uses your current locale by default and does not unset it when
+building packages. If you wish to share your build output with others when
+seeking help or for other purposes, you may wish to run "`LC_ALL=C makeapex`" so
+your logs and output are not localized.
+
+
+Options
+-------
+*-c, \--clean*::
+	Clean up leftover work files and directories after a successful build.
+
+*\--config* <file>::
+	Use an alternate configuration file instead of the `/etc/makeapex.conf`
+	default.
+
+*-d, \--nodeps*::
+	Do not perform any dependency checks. This will let you override and
+	ignore any dependencies required. There is a good chance this option
+	will break the build process if all of the dependencies are not
+	installed.
+
+*-e, \--noextract*::
+	Do not extract source files or run the prepare() function (if present);
+	use whatever source already exists in the $srcdir/ directory.
+
+*-f, \--force*::
+	makeapex will not build a package if a built package already exists in
+	the `PKGDEST` directory, which may default to the current directory. 
+	This allows the built package to be overwritten.
+
+*-g, \--geninteg*::
+	For each source file in the source array of APEXBUILD, download the file
+	if required and generate integrity checks.
+
+*-h, \--help*::
+	Output syntax and command line options.
+
+*-s, \--syncdeps*::
+	Install missing dependencies. When build-time or run-time dependencies 
+	are not found, the system will try to resolve them.
+
+*-V, \--version*::
+	Display version information.
+
+*-C, \--cleanbuild*::
+	Clean build artifacts from previous runs of makeapex in the current
+	directory by removing $srcdir before building the package.
+
+*-D* <dir>, *\--dir* <dir> ::
+	Change to directory <dir> before reading the APEXBUILD or doing anything else.
+
+*\--noconfirm*::
+	Assume default answers to all confirmation prompts. Useful for automated 
+	CI/CD pipelines.
+
+
+Environment Variables
+---------------------
+**MAKEAPEX_LIBRARY**="/path/to/directory"::
+	Use an alternative libmakeapex path.
+
+**MAKEAPEX_CONF=**"/path/to/file"::
+	Use an alternate config file instead of the `/etc/makeapex.conf` default.
+
+**PKGDEST=**"/path/to/directory"::
+	Directory where the resulting APEX files will be stored. Overrides the
+	corresponding value defined in linkman:makeapex.conf[5].
+
+**SRCDEST=**"/path/to/directory"::
+	Directory where the downloaded sources will be stored.
+
+
+Architecture and Linker Injection
+---------------------------------
+Unlike standard Linux packages, APEX payloads are strictly isolated by the 
+Android Bionic dynamic linker. 
+
+`makeapex` features an advanced *Tidy Hook System* that automatically runs 
+`readelf` against all packaged ELF binaries and shared libraries during the 
+build. It extracts `SONAME` and `NEEDED` properties, dynamically synthesizing 
+an `etc/linker.config.json` and injecting `requireNativeLibs` and 
+`provideNativeLibs` into the boot `apex_manifest.json` right before creating 
+the final `.apex` image.
+
+
+See Also
+--------
+linkman:makeapex.conf[5], linkman:APEXBUILD[5]

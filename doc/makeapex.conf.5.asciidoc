@@ -1,0 +1,103 @@
+makeapex.conf(5)
+================
+
+Name
+----
+makeapex.conf - makeapex configuration file
+
+
+Synopsis
+--------
+/etc/makeapex.conf, ~/.makeapex.conf
+
+
+Description
+-----------
+Configuration options for makeapex are stored in makeapex.conf. This file is
+sourced so you can include any special compiler flags you wish to use. This is
+helpful when building for different architectures or with different
+optimizations. However, only the variables described below are exported to the
+build environment.
+
+The system-wide configuration file is found in `/etc/makeapex.conf`.
+Individual options can be overridden (or added to) on a per-user basis in
+`~/.makeapex.conf`, taking priority over the system-wide settings.
+
+
+Options
+-------
+**DLAGENTS=(**\'protocol::/path/to/command [options]' ...**)**::
+	Sets the download agents used to fetch source files specified with a URL in
+	the linkman:APEXBUILD[5] file. Options can be specified for each command as
+	well, and any protocol can have a download agent.
+	+
+	If present, `%u` will be replaced with the download URL. Otherwise, the
+	download URL will be placed on the end of the command. If present, `%o` will
+	be replaced with the local file name, plus a ``.part'' extension, which allows
+	makeapex to handle resuming file downloads.
+
+**CARCH=**"carch"::
+	Specifies your computer architecture; possible values include such things
+	as ``aarch64'', ``armv7h'', ``x86_64'', etc.
+
+**CHOST=**"chost"::
+	A string such as ``aarch64-linux-android''; do not touch this unless you know what
+	you are doing.
+
+**CPPFLAGS=**"cppflags"::
+	Flags used for the C preprocessor; see CFLAGS for more information.
+
+**CFLAGS=**"cflags"::
+	Flags used for the C compiler. This is a key part to the use of makeapex.
+	Usually several options are specified, and the most common string resembles
+	something like this: ``-march=armv8-a -O2 -pipe''. 
+
+**CXXFLAGS=**"cxxflags"::
+	Flags used for the C++ compiler; see CFLAGS for more info.
+
+**LDFLAGS=**"ldflags"::
+	Flags used for the linker. Several options may be specified with common
+	usage resembling ``-Wl,--hash-style=gnu''.
+
+**MAKEFLAGS=**"makeflags"::
+	This is often used to set the number of jobs used; for example, `-j2`.
+	Other flags that make accepts can also be passed.
+
+**BUILDENV=(**!distcc !color !ccache check !sign**)**::
+	This array contains options that affect the build environment; the defaults
+	are shown here. All options should always be left in the array; to enable
+	or disable an option, simply remove or add an ``!'' at the front of the
+	option.
+
+**OPTIONS=(**!strip docs libtool staticlibs emptydirs ...**)**::
+	This array contains options that affect default packaging. They are
+	equivalent to options that can be placed in the APEXBUILD; the defaults are
+	shown here. All options should always be left in the array; to enable or
+	disable an option, simply remove or add an ``!'' at the front of the
+	option.
+
+**INTEGRITY_CHECK=(**check1 ...**)**::
+	File integrity checks to use. Multiple checks may be specified; this
+	affects both generation and checking. The current valid options are:
+	`ck`, `md5`, `sha1`, `sha224`, `sha256`, `sha384`, `sha512`, and `b2`.
+
+**PKGDEST=**"/path/to/directory"::
+	If this value is not set, packages will, by default, be placed in the
+	current directory (location of the linkman:APEXBUILD[5]). 
+
+**SRCDEST=**"/path/to/directory"::
+	If this value is not set, downloaded source files will only be stored
+	in the current directory. 
+
+**PACKAGER=**"John Doe <john@example.com>"::
+	This value is used when querying an APEX to see who was the builder.
+	It is recommended to change this to your name and email address.
+
+**PKGEXT=**"{pkgext}", **SRCEXT=**"{srcext}"::
+	Sets the compression extension used when making source packages. APEX files 
+	are naturally emitted as `.apex` payloads.
+
+
+See Also
+--------
+linkman:makeapex[8], linkman:APEXBUILD[5]

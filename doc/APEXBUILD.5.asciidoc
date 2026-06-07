@@ -1,0 +1,120 @@
+APEXBUILD(5)
+============
+
+Name
+----
+APEXBUILD - Package build description file for makeapex
+
+
+Synopsis
+--------
+APEXBUILD
+
+
+Description
+-----------
+This manual page describes general rules about APEXBUILDs. Once an
+APEXBUILD is written, the actual package is built using makeapex and outputted
+as a mountable Android APEX payload image.
+
+NOTE: An APEXBUILD is a bash shell script containing variables and functions 
+required to define package properties, compile source code, and assemble the file 
+tree structure for the APEX filesystem.
+
+
+Options and Directives
+----------------------
+The following is a list of standard options and directives available for use
+in an APEXBUILD. These are all understood and interpreted by makeapex, and most
+of them will be directly transferred to the built package and the Android manifests. 
+The mandatory fields for a minimally functional APEXBUILD are *pkgname*, *pkgver*, 
+*pkgrel*, *arch*, and *payload_fs*.
+
+If you need to create any custom variables for use in your build process, it is
+recommended to prefix their name with an '_' (underscore).
+This will prevent any possible name clashes with internal makeapex variables.
+
+*pkgname*::
+	The canonical name of the package. It should strictly consist of alphanumeric
+	characters, hyphens, and periods (e.g., 'com.example.bash'). This translates 
+	to the APEX name space.
+
+*pkgver*::
+	The version of the software as released from the author (e.g., '2.7.1').
+	The variable is not allowed to contain colons, forward slashes, hyphens
+	or whitespace.
+
+*pkgrel*::
+	This is the release number specific to the distribution. This
+	allows package maintainers to make updates to the package's configure
+	flags, for example.
+
+*arch (array)*::
+	Defines on which architectures the given package is available (e.g.,
+	`arch=('i686' 'x86_64')`). Packages that contain no architecture specific
+	files should use `arch=('any')`.
+
+*payload_fs*::
+	Specifies the underlying filesystem to use inside the APEX image.
+	Valid options are typically `ext4` or `erofs`.
+
+*source (array)*::
+	An array of source files required to build the package. Source files
+	must either reside in the same directory as the APEXBUILD, or be a
+	fully-qualified URL that makeapex can use to download the file.
+	Unlike makepkg, if a local `src/` directory is present alongside the 
+	APEXBUILD, it is automatically recognized and mapped without needing 
+	an explicit source definition!
+
+*depends (array)*::
+	An array of packages or libraries this package depends on to run.
+	Entries in this list translate directly into APEX dependencies.
++
+Because APEX relies on ABI-level Bionic linker resolution, dependencies must
+be shared libraries (e.g., 'libssl.so'). 
++
+*Virtual Dependencies:* To depend on non-library binaries (like 'bash' or 'coreutils'),
+use the virtual `_` prefix, such as `_binary_bash`. makeapex will natively translate
+this into a physical placeholder library (`libdummy-binary-bash.so`) to trick the 
+Android linker into respecting the dependency!
+
+*provides (array)*::
+	An array of ``virtual provisions'' this package provides. This allows
+	a package to provide dependencies other than its own package name.
++
+*Virtual Provisions:* By specifying `_script_makeapex`, makeapex will automatically
+invoke a compiler to generate an empty `libdummy-script-makeapex.so` and expose
+it to the Android OS through the internal manifests, providing resolution hooks
+for other APEXes.
+
+
+Packaging Functions
+-------------------
+In addition to the above directives, APEXBUILDs require a set of functions that
+provide instructions to build and install the package. As a minimum, the
+APEXBUILD must contain a `package()` function which installs all the package's
+files into the packaging directory, with optional `prepare()`, `build()`, and
+`check()` functions being used to create those files from source.
+
+*prepare() Function*::
+	An optional `prepare()` function can be specified in which operations to
+	prepare the sources for building, such as patching, are performed.
+
+*build() Function*::
+	The optional `build()` function is used to compile and/or adjust the source
+	files in preparation to be installed by the `package()` function.
+
+*package() Function*::
+	The `package()` function is used to install files into the directory that
+	will become the root directory of the built package and is run after all
+	the optional functions listed above.
++
+*NOTE:* The `$pkgdir` variable intrinsically represents the APEX mount structure.
+The root of `$pkgdir` maps strictly to `/vendor` within the final Android system
+unless specifically patched. Therefore, running `mkdir -p "$pkgdir/bin"`
+translates directly to `/vendor/bin/` upon boot!
+
+
+See Also
+--------
+makeapex(8)
