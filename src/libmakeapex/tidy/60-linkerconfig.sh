@@ -21,12 +21,12 @@ tidy_linkerconfig() {
 
 	local dummy_prefix=""
 	if [[ " ${arch[*]} " =~ " x86_64 " ]] || [[ "$CARCH" == "x86_64" ]]; then
-		local lvl=${_microarch_level:-2}
+		local lvl=${_x86_64_microarch_level:-2}
 		if [[ "$lvl" -gt 1 ]]; then
 			dummy_prefix="-x86_64-v${lvl}"
 		fi
 	elif [[ " ${arch[*]} " =~ " aarch64 " ]] || [[ "$CARCH" == "aarch64" ]]; then
-		local lvl=${_microarch_level:-8.2}
+		local lvl=${_aarch64_microarch_level:-8.2}
 		if awk -v a="$lvl" -v b="8.0" 'BEGIN { exit !(a > b) }'; then
 			dummy_prefix="-aarch64-v${lvl//./_}"
 		fi
