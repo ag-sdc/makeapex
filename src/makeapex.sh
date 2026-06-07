@@ -274,16 +274,67 @@ check_deps() {
 		return 0
 	fi
 
-	local ret=0
-	local pmout
-	pmout=$(run_pacman -T "$@")
-	ret=$?
+	if (( is_bionic )); then
+		local missing=()
+		local dummy_prefix=""
+		if [[ " ${arch[*]} " =~ " x86_64 " ]] || [[ "$CARCH" == "x86_64" ]]; then
+			local lvl=${_x86_64_microarch_level:-2}
+			if [[ "$lvl" -gt 1 ]]; then
+				dummy_prefix="-x86_64-v${lvl}"
+			fi
+		elif [[ " ${arch[*]} " =~ " aarch64 " ]] || [[ "$CARCH" == "aarch64" ]]; then
+			local lvl=${_aarch64_microarch_level:-8.2}
+			if awk -v a="$lvl" -v b="8.0" 'BEGIN { exit !(a > b) }'; then
+				dummy_prefix="-aarch64-v${lvl//./_}"
+			fi
+		fi
 
-	if (( ret == 127 )); then #unresolved deps
-		printf "%s\n" "$pmout"
-	elif (( ret )); then
-		error "$(gettext "'%s' returned a fatal error (%i): %s")" "$PACMAN" "$ret" "$pmout"
-		return "$ret"
+		for dep in "$@"; do
+			local target_soname="$dep"
+			if [[ "$dep" == _* ]]; then
+				target_soname="libdummy${dummy_prefix}${dep//_/-}.so"
+			elif [[ "$dep" != *.so* ]]; then
+				# If it doesn't end in .so and isn't virtual, check PATH (useful for makedepends)
+				if command -v "$dep" >/dev/null 2>&1; then
+					continue
+				fi
+				target_soname="$dep.so"
+			fi
+
+			local found=0
+			local search_paths=(
+				"/system/lib64" "/system/lib"
+				"/vendor/lib64" "/vendor/lib"
+				"/system_ext/lib64" "/system_ext/lib"
+				"/product/lib64" "/product/lib"
+				"/apex/com.android.runtime/lib64/bionic" "/apex/com.android.runtime/lib/bionic"
+			)
+			for p in "${search_paths[@]}"; do
+				if [[ -e "$p/$target_soname" ]]; then
+					found=1
+					break
+				fi
+			done
+
+			if (( ! found )); then
+				for apex_dir in /apex/*/lib64 /apex/*/lib; do
+					if [[ -e "$apex_dir/$target_soname" ]]; then
+						found=1
+						break
+					fi
+				done
+			fi
+
+			if (( ! found )); then
+				missing+=("$dep")
+			fi
+		done
+
+		if (( ${#missing[@]} > 0 )); then
+			printf "%s\n" "${missing[@]}"
+			return 127
+		fi
+		return 0
 	fi
 }
 

@@ -64,6 +64,14 @@ tidy_linkerconfig() {
 		fi
 	done < <(find "$pkgdir" -type f -perm -u+w -print0 2>/dev/null)
 
+	# 2b. Add symlinks to provides
+	while IFS= read -rd '' symlink ; do
+		local symlink_name
+		symlink_name=$(basename "$symlink")
+		if [[ "$symlink_name" == *.so* ]]; then
+			prov_libs+=("$symlink_name")
+		fi
+	done < <(find "$pkgdir" -type l -print0 2>/dev/null)
 	# 3. Add explicit depends and provides from APEXBUILD
 	for d in "${depends[@]}"; do
 		if [[ "$d" == *.so ]]; then
