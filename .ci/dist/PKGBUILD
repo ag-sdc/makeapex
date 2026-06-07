@@ -6,7 +6,7 @@ arch=('any')
 url="https://github.com/shadichy/makeapex"
 license=('GPL')
 depends=('android-tools' 'bash' 'coreutils' 'awk' 'sed' 'e2fsprogs' 'erofs-utils' 'zip' 'unzip' 'openssl' 'python')
-source=("git+http://10.249.0.1/android-generic/makeapex.git")
+source=("git+http://10.249.0.1:3002/android-generic/makeapex.git")
 md5sums=('SKIP')
 
 package() {
@@ -15,7 +15,7 @@ package() {
   install -d "$pkgdir/usr/bin"
   
   # Copy files
-  cp -r "$srcdir/"* "$pkgdir/opt/makeapex/"
+  cp -r "$srcdir/makeapex/"* "$pkgdir/opt/makeapex/"
   
   # Ensure makeapex script is executable
   chmod +x "$pkgdir/opt/makeapex/makeapex.sh"

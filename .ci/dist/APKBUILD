@@ -9,7 +9,7 @@ arch="noarch"
 license="GPL"
 depends="bash coreutils awk sed e2fsprogs erofs-utils zip unzip openssl python3"
 makedepends=""
-source="git+http://10.249.0.1/android-generic/makeapex.git"
+source="git+http://10.249.0.1:3002/android-generic/makeapex.git"
 
 build() {
 	return 0
@@ -19,7 +19,7 @@ package() {
 	mkdir -p "$pkgdir"/opt/makeapex
 	mkdir -p "$pkgdir"/usr/bin
 	
-	cp -r "$srcdir"/* "$pkgdir"/opt/makeapex/
+	cp -r "$srcdir/makeapex"/* "$pkgdir"/opt/makeapex/
 	
 	chmod +x "$pkgdir"/opt/makeapex/makeapex.sh
 	
