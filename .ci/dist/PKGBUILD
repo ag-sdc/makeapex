@@ -6,7 +6,7 @@ arch=('any')
 url="https://github.com/shadichy/makeapex"
 license=('GPL')
 depends=('android-tools' 'bash' 'coreutils' 'awk' 'sed' 'e2fsprogs' 'erofs-utils' 'zip' 'unzip' 'openssl' 'python' 'binutils' 'gcc')
-source=("git+http://10.249.0.1:3002/android-generic/makeapex.git")
+source=("makeapex::git+file://${startdir}/../../")
 md5sums=('SKIP')
 
 package() {
