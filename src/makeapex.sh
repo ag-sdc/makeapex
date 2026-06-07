@@ -261,9 +261,16 @@ check_deps() {
 	(( $# > 0 )) || return 0
 
 	# Skip dependency check on non-android (non-bionic libc) platforms
-	if [[ "$(uname -o 2>/dev/null)" != "Android" ]]; then
+	local is_bionic=0
+	if LC_ALL=C readelf -l /bin/sh 2>/dev/null | grep -iq 'program interpreter.*linker'; then
+		is_bionic=1
+	elif [[ -e /system/bin/linker || -e /system/bin/linker64 || -e /apex/com.android.runtime/bin/linker64 ]]; then
+		is_bionic=1
+	fi
+
+	if (( ! is_bionic )); then
 		# Print to stderr so it doesn't get captured as a missing dependency string
-		msg2 "$(gettext "Skipping dependency checks on non-Android platform.")" >&2
+		msg2 "$(gettext "Skipping dependency checks on non-Bionic (non-Android) platform.")" >&2
 		return 0
 	fi
 
