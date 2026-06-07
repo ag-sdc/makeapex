@@ -3,6 +3,7 @@ pkgver=1.0.0
 pkgrel=1
 arch=('any')
 payload_fs=erofs
+source=( 'src' ) # default to content inside src/;
 
 build() {
   echo "Building makeapex APEX..."
@@ -13,11 +14,11 @@ package() {
   mkdir -p "$pkgdir/libmakeapex"
   
   # Copy scripts
-  cp makeapex.sh "$pkgdir/bin/makeapex"
-  cp -r libmakeapex/* "$pkgdir/libmakeapex/"
-  cp makeapex.conf "$pkgdir/"
-  if [ -f "avbtool" ]; then
-      cp avbtool "$pkgdir/"
+  cp src/makeapex.sh "$pkgdir/bin/makeapex"
+  cp -r src/libmakeapex/* "$pkgdir/libmakeapex/"
+  cp src/makeapex.conf "$pkgdir/"
+  if [ -f "src/avbtool" ]; then
+      cp src/avbtool "$pkgdir/"
   fi
   
   # Ensure executables

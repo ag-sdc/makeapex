@@ -9,7 +9,7 @@ arch="noarch"
 license="GPL"
 depends="bash coreutils awk sed e2fsprogs erofs-utils zip unzip openssl python3"
 makedepends=""
-source="local://."
+source="git+http://10.249.0.1/android-generic/makeapex.git"
 
 build() {
 	return 0
