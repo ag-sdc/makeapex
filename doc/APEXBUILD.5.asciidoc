@@ -51,8 +51,11 @@ This will prevent any possible name clashes with internal makeapex variables.
 
 *arch (array)*::
 	Defines on which architectures the given package is available (e.g.,
-	`arch=('i686' 'x86_64')`). Packages that contain no architecture specific
+	`arch=('aarch64' 'x86_64')`). Packages that contain no architecture specific
 	files should use `arch=('any')`.
++
+Currently supported architectures are `x86_64` (with all microarchitectures) 
+and `aarch64` (ARMv8 and all above microarchitectures).
 
 *payload_fs*::
 	Specifies the underlying filesystem to use inside the APEX image.

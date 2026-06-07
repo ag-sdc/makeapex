@@ -38,7 +38,10 @@ Options
 
 **CARCH=**"carch"::
 	Specifies your computer architecture; possible values include such things
-	as ``aarch64'', ``armv7h'', ``x86_64'', etc.
+	as ``aarch64'', ``x86_64'', etc.
+	+
+	Currently supported architectures are `x86_64` (with all microarchitectures) 
+	and `aarch64` (ARMv8 and all above microarchitectures).
 
 **CHOST=**"chost"::
 	A string such as ``aarch64-linux-android''; do not touch this unless you know what
