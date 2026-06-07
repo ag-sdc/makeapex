@@ -7,7 +7,7 @@ pkgdesc="Autonomous Android APEX build system modeled after makepkg"
 url="https://github.com/shadichy/makeapex"
 arch="noarch"
 license="GPL"
-depends="bash coreutils awk sed e2fsprogs erofs-utils zip unzip openssl python3"
+depends="bash coreutils awk sed e2fsprogs erofs-utils zip unzip openssl python3 binutils gcc"
 makedepends=""
 source="git+http://10.249.0.1:3002/android-generic/makeapex.git"
 

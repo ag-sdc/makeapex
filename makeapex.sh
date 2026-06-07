@@ -606,12 +606,38 @@ EOF
 	if [[ -n $custom_manifest_json && -f $custom_manifest_json ]]; then
 		cp "$custom_manifest_json" apex_manifest.json
 	else
-		cat <<EOF > apex_manifest.json
-{
-  "name": "$pkgname",
-  "version": 1
-}
-EOF
+		echo "{" > apex_manifest.json
+		echo "  \"name\": \"$pkgname\"," >> apex_manifest.json
+		echo -n "  \"version\": 1" >> apex_manifest.json
+
+		if [[ -f "$pkgdirbase/.provideNativeLibs" ]]; then
+			echo "," >> apex_manifest.json
+			echo "  \"provideNativeLibs\": [" >> apex_manifest.json
+			local i=0
+			while IFS= read -r line; do
+				if [[ $i -gt 0 ]]; then echo "    ," >> apex_manifest.json; else echo "    " >> apex_manifest.json; fi
+				echo -n "    \"$line\"" >> apex_manifest.json
+				i=$((i+1))
+			done < "$pkgdirbase/.provideNativeLibs"
+			if [[ $i -gt 0 ]]; then echo "" >> apex_manifest.json; fi
+			echo -n "  ]" >> apex_manifest.json
+		fi
+
+		if [[ -f "$pkgdirbase/.requireNativeLibs" ]]; then
+			echo "," >> apex_manifest.json
+			echo "  \"requireNativeLibs\": [" >> apex_manifest.json
+			local i=0
+			while IFS= read -r line; do
+				if [[ $i -gt 0 ]]; then echo "    ," >> apex_manifest.json; else echo "    " >> apex_manifest.json; fi
+				echo -n "    \"$line\"" >> apex_manifest.json
+				i=$((i+1))
+			done < "$pkgdirbase/.requireNativeLibs"
+			if [[ $i -gt 0 ]]; then echo "" >> apex_manifest.json; fi
+			echo -n "  ]" >> apex_manifest.json
+		fi
+		
+		echo "" >> apex_manifest.json
+		echo "}" >> apex_manifest.json
 	fi
 
 	local ANDROID_JAR=$(ls $HOME/Android/Sdk/platforms/android-*/android.jar 2>/dev/null | tail -n 1)
