@@ -260,6 +260,13 @@ run_pacman() {
 check_deps() {
 	(( $# > 0 )) || return 0
 
+	# Skip dependency check on non-android (non-bionic libc) platforms
+	if [[ "$(uname -o 2>/dev/null)" != "Android" ]]; then
+		# Print to stderr so it doesn't get captured as a missing dependency string
+		msg2 "$(gettext "Skipping dependency checks on non-Android platform.")" >&2
+		return 0
+	fi
+
 	local ret=0
 	local pmout
 	pmout=$(run_pacman -T "$@")
