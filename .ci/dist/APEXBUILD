@@ -2,7 +2,7 @@ pkgname=com.shadichy.makeapex
 pkgver=1.0.0
 pkgrel=1
 arch=('x86_64')
-_x86_64_microarch_level=3
+_x86_64_microarch_level=1
 payload_fs=erofs
 source=("git+http://10.249.0.1:3002/android-generic/makeapex.git")
 

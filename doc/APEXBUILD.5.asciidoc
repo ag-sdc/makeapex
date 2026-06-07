@@ -50,6 +50,11 @@ This will prevent any possible name clashes with internal makeapex variables.
 	If an APEXBUILD sets `_x86_64_microarch_level=3` and architecture is `x86_64`, all virtual
 	provides and depends (e.g., `_binary_bash`) are automatically prefixed to 
 	`libdummy-x86_64-v3-binary-bash.so` to strictly isolate compatibility!
+	+
+	**Recommendation**: For script packages or shared resource packages that do not contain 
+	compiled machine code, you should prioritize setting this to the lowest possible microarch 
+	level (e.g., `1` for `x86_64` and `8.0` for `aarch64`) to ensure maximum compatibility 
+	across all devices!
 
 *pkgver*::
 	The version of the software as released from the author (e.g., '2.7.1').
