@@ -5,8 +5,8 @@ arch=('any')
 payload_fs=erofs
 source=("git+http://10.249.0.1/android-generic/makeapex.git")
 
-provides=('libdummy-script-makeapex.so')
-depends=('libdummy-binary-bash.so' 'libdummy-binary-coreutils.so' 'libdummy-binary-e2fsprogs.so' 'libdummy-binary-erofs-utils.so' 'libdummy-binary-zip.so' 'libdummy-binary-unzip.so' 'libdummy-binary-python.so' 'libdummy-binary-binutils.so' 'libdummy-binary-gcc.so')
+provides=('_script_makeapex')
+depends=('_binary_bash' '_binary_coreutils' '_binary_e2fsprogs' '_binary_erofs_utils' '_binary_zip' '_binary_unzip' '_binary_python' '_binary_binutils' '_binary_gcc')
 
 build() {
   echo "Building makeapex APEX..."

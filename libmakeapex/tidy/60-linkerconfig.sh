@@ -21,12 +21,13 @@ tidy_linkerconfig() {
 
 	# 1. Generate libdummy files from provides=()
 	for p in "${provides[@]}"; do
-		if [[ "$p" == libdummy-*.so ]]; then
-			msg2 "$(gettext "Generating virtual dependency library: $p")"
+		if [[ "$p" == _* ]]; then
+			local dummy_name="libdummy${p//_/-}.so"
+			msg2 "$(gettext "Generating virtual dependency library: $dummy_name")"
 			mkdir -p "$pkgdir/vendor/lib"
 			# Echo an empty C file and compile it as a shared library
-			echo 'void dummy(){}' | gcc -shared -xc - -o "$pkgdir/vendor/lib/$p"
-			prov_libs+=("$p")
+			echo 'void dummy(){}' | gcc -shared -xc - -o "$pkgdir/vendor/lib/$dummy_name"
+			prov_libs+=("$dummy_name")
 		fi
 	done
 
@@ -54,12 +55,16 @@ tidy_linkerconfig() {
 	for d in "${depends[@]}"; do
 		if [[ "$d" == *.so ]]; then
 			req_libs+=("$d")
+		elif [[ "$d" == _* ]]; then
+			req_libs+=("libdummy${d//_/-}.so")
 		fi
 	done
 
 	for p in "${provides[@]}"; do
 		if [[ "$p" == *.so ]]; then
 			prov_libs+=("$p")
+		elif [[ "$p" == _* ]]; then
+			prov_libs+=("libdummy${p//_/-}.so")
 		fi
 	done
 
