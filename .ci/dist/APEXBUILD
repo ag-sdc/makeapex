@@ -3,7 +3,7 @@ pkgver=1.0.0
 pkgrel=1
 arch=('any')
 payload_fs=erofs
-source=("git+http://10.249.0.1/android-generic/makeapex.git")
+source=("git+http://10.249.0.1:3002/android-generic/makeapex.git")
 
 build() {
   echo "Building makeapex APEX..."
