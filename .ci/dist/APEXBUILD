@@ -4,7 +4,7 @@ pkgrel=1
 arch=('x86_64')
 _x86_64_microarch_level=1
 payload_fs=erofs
-source=("git+file://../../")
+source=("makeapex::git+file://${startdir}/../../")
 
 provides=('_script_makeapex')
 depends=('_binary_bash' '_binary_coreutils' '_binary_e2fsprogs' '_binary_erofs_utils' '_binary_zip' '_binary_unzip' '_binary_python' '_binary_binutils' '_binary_gcc')
@@ -21,13 +21,8 @@ package() {
   cp "$srcdir/makeapex/src/makeapex.sh" "$pkgdir/bin/makeapex"
   cp -r "$srcdir/makeapex/src/libmakeapex"/* "$pkgdir/lib/libmakeapex/"
   cp "$srcdir/makeapex/src/makeapex.conf" "$pkgdir/"
-  if [ -f "$srcdir/makeapex/src/avbtool" ]; then
-      cp "$srcdir/makeapex/src/avbtool" "$pkgdir/"
-  fi
-  
+
   # Ensure executables
   chmod +x "$pkgdir/bin/makeapex"
-  if [ -f "$pkgdir/avbtool" ]; then
-      chmod +x "$pkgdir/avbtool"
-  fi
+
 }
