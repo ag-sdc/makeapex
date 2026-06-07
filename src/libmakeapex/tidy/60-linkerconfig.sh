@@ -19,10 +19,23 @@ tidy_linkerconfig() {
 	local req_libs=()
 	local prov_libs=()
 
+	local dummy_prefix=""
+	if [[ " ${arch[*]} " =~ " x86_64 " ]] || [[ "$CARCH" == "x86_64" ]]; then
+		local lvl=${_microarch_level:-2}
+		if [[ "$lvl" -gt 1 ]]; then
+			dummy_prefix="-x86_64-v${lvl}"
+		fi
+	elif [[ " ${arch[*]} " =~ " aarch64 " ]] || [[ "$CARCH" == "aarch64" ]]; then
+		local lvl=${_microarch_level:-8.2}
+		if awk -v a="$lvl" -v b="8.0" 'BEGIN { exit !(a > b) }'; then
+			dummy_prefix="-aarch64-v${lvl//./_}"
+		fi
+	fi
+
 	# 1. Generate libdummy files from provides=()
 	for p in "${provides[@]}"; do
 		if [[ "$p" == _* ]]; then
-			local dummy_name="libdummy${p//_/-}.so"
+			local dummy_name="libdummy${dummy_prefix}${p//_/-}.so"
 			msg2 "$(gettext "Generating virtual dependency library: $dummy_name")"
 			mkdir -p "$pkgdir/vendor/lib"
 			# Echo an empty C file and compile it as a shared library
@@ -56,7 +69,7 @@ tidy_linkerconfig() {
 		if [[ "$d" == *.so ]]; then
 			req_libs+=("$d")
 		elif [[ "$d" == _* ]]; then
-			req_libs+=("libdummy${d//_/-}.so")
+			req_libs+=("libdummy${dummy_prefix}${d//_/-}.so")
 		fi
 	done
 
@@ -64,7 +77,7 @@ tidy_linkerconfig() {
 		if [[ "$p" == *.so ]]; then
 			prov_libs+=("$p")
 		elif [[ "$p" == _* ]]; then
-			prov_libs+=("libdummy${p//_/-}.so")
+			prov_libs+=("libdummy${dummy_prefix}${p//_/-}.so")
 		fi
 	done
 

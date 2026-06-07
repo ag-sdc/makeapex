@@ -1,9 +1,10 @@
 pkgname=com.shadichy.makeapex
 pkgver=1.0.0
 pkgrel=1
-arch=('any')
+arch=('x86_64')
+_microarch_level=3
 payload_fs=erofs
-source=("git+http://10.249.0.1/android-generic/makeapex.git")
+source=("git+http://10.249.0.1:3002/android-generic/makeapex.git")
 
 provides=('_script_makeapex')
 depends=('_binary_bash' '_binary_coreutils' '_binary_e2fsprogs' '_binary_erofs_utils' '_binary_zip' '_binary_unzip' '_binary_python' '_binary_binutils' '_binary_gcc')

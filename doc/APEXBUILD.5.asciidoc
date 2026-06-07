@@ -39,6 +39,18 @@ This will prevent any possible name clashes with internal makeapex variables.
 	characters, hyphens, and periods (e.g., 'com.example.bash'). This translates 
 	to the APEX name space.
 
+*_microarch_level*::
+	Specifies the required microarchitecture optimization level for virtual 
+	dependencies. This protects systems against installing mathematically-optimized
+	code sets onto non-compliant CPUs.
+	+
+	- For `x86_64`: Integer levels (1, 2, 3, 4). Defaults to `2`.
+	- For `aarch64`: Floating values (8.0 to 9.7). Defaults to `8.2`.
+	+
+	If an APEXBUILD sets `_microarch_level=3` and architecture is `x86_64`, all virtual
+	provides and depends (e.g., `_binary_bash`) are automatically prefixed to 
+	`libdummy-x86_64-v3-binary-bash.so` to strictly isolate compatibility!
+
 *pkgver*::
 	The version of the software as released from the author (e.g., '2.7.1').
 	The variable is not allowed to contain colons, forward slashes, hyphens
