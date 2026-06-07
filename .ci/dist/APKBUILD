@@ -16,12 +16,6 @@ build() {
 }
 
 package() {
-	mkdir -p "$pkgdir"/opt/makeapex
-	mkdir -p "$pkgdir"/usr/bin
-	
-	cp -r "$srcdir/makeapex/src"/* "$pkgdir"/opt/makeapex/
-	
-	chmod +x "$pkgdir"/opt/makeapex/makeapex.sh
-	
-	ln -s /opt/makeapex/makeapex.sh "$pkgdir"/usr/bin/makeapex
+	cd "$srcdir/makeapex"
+	make DESTDIR="$pkgdir" PREFIX=/usr install
 }
