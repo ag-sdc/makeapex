@@ -5,8 +5,20 @@
 *.zip
 *.tar.*
 *.tar
+*.apk
 
 # Build directories
 src/
 pkg/
 makeapex/
+
+# Generated keys
+*.pub
+apex_pubkey
+*.pem
+*.pk8
+*.idsig
+
+# Build temp files
+*.xml
+*.json
