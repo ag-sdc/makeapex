@@ -676,29 +676,32 @@ create_package() {
 
 	local fullver; fullver=$(get_full_version)
 	local apex_file="$PKGDEST/${full_pkgname}-${fullver}${PKGEXT:-.apex}"
+	local api=${api_level:-32}	
+	
+	local android_pkgname="${full_pkgname//-/.}"
 	
 	[[ -f $apex_file ]] && rm -f "$apex_file"
 
 	# 1. Manifest Compilation
 	msg2 "$(gettext "Generating manifests...")"
 	if [[ -n $custom_manifest_xml && -f $custom_manifest_xml ]]; then
-		cp "$custom_manifest_xml" AndroidManifest.xml
+		cp "$custom_manifest_xml" AndroidManifest.xml || exit 1
 	else
 		cat <<EOF > AndroidManifest.xml
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-  package="$full_pkgname" android:versionCode="1" android:versionName="$fullver">
-  <uses-sdk android:minSdkVersion="${api_level:-32}" android:targetSdkVersion="${api_level:-32}"/>
+  package="$android_pkgname" android:versionCode="1" android:versionName="$fullver">
+  <uses-sdk android:minSdkVersion="${api}" android:targetSdkVersion="${api}"/>
   <application android:extractNativeLibs="false" android:hasCode="false" />
 </manifest>
 EOF
 	fi
 
 	if [[ -n $custom_manifest_json && -f $custom_manifest_json ]]; then
-		cp "$custom_manifest_json" apex_manifest.json
+		cp "$custom_manifest_json" apex_manifest.json || exit 1
 	else
 		echo "{" > apex_manifest.json
-		echo "  \"name\": \"$full_pkgname\"," >> apex_manifest.json
+		echo "  \"name\": \"$android_pkgname\"," >> apex_manifest.json
 		echo -n "  \"version\": 1" >> apex_manifest.json
 
 		if [[ -f "$pkgdirbase/.provideNativeLibs" ]]; then
@@ -732,10 +735,9 @@ EOF
 	fi
 
 	local ANDROID_SDK=${ANDROID_HOME:-"$HOME/Android/Sdk"}
-	local api=${api_level:-32}	
 
 	local ANDROID_JAR; ANDROID_JAR="$(find "$ANDROID_SDK"/platforms	-iname "android-${api}*" -print -quit 2>/dev/null)/android.jar"
-	if [ -z "$ANDROID_JAR" ]; then
+	if [ "$ANDROID_JAR" = /android.jar ]; then
 		error "android.jar not found in $ANDROID_SDK/platforms/android-${api}*/android.jar"
 		exit 1
 	fi
@@ -759,24 +761,24 @@ EOF
 			exit 1
 		fi
 	fi
-	aapt2 link --manifest AndroidManifest.xml -o temp.apk -I "$ANDROID_JAR"
+	aapt2 link --manifest AndroidManifest.xml -o temp.apk -I "$ANDROID_JAR" || exit 1
 	mkdir -p compiled
-	unzip -o temp.apk AndroidManifest.xml -d compiled/ >/dev/null
+	unzip -o temp.apk AndroidManifest.xml -d compiled/ >/dev/null || exit 1
 
 	# 2. Key Management
 	msg2 "$(gettext "Preparing keys...")"
 	# shellcheck disable=SC2199
 	if [[ -n ${signing_keys[@]} ]]; then
-		cp "${signing_keys[0]}" container.pk8
-		cp "${signing_keys[1]}" container.x509.pem
-		cp "${signing_keys[2]}" payload_key.pem
-		avbtool extract_public_key --key payload_key.pem --output apex_pubkey
+		cp "${signing_keys[0]}" container.pk8 || exit 1
+		cp "${signing_keys[1]}" container.x509.pem || exit 1
+		cp "${signing_keys[2]}" payload_key.pem || exit 1
+		avbtool extract_public_key --key payload_key.pem --output apex_pubkey || exit 1
 	else
 		if [[ ! -f payload_key.pem ]]; then
-			openssl req -x509 -nodes -days 3650 -newkey rsa:2048 -keyout container.pk8.pem -out container.x509.pem -subj "/C=US/ST=State/L=City/O=Org/OU=Unit/CN=example.com" 2>/dev/null
-			openssl pkcs8 -topk8 -inform PEM -outform DER -in container.pk8.pem -out container.pk8 -nocrypt
-			openssl genrsa -out payload_key.pem 2048 2>/dev/null
-			avbtool extract_public_key --key payload_key.pem --output apex_pubkey
+			openssl req -x509 -nodes -days 3650 -newkey rsa:2048 -keyout container.pk8.pem -out container.x509.pem -subj "/C=US/ST=State/L=City/O=Org/OU=Unit/CN=example.com" 2>/dev/null || exit 1
+			openssl pkcs8 -topk8 -inform PEM -outform DER -in container.pk8.pem -out container.pk8 -nocrypt || exit 1
+			openssl genrsa -out payload_key.pem 2048 2>/dev/null || exit 1
+			avbtool extract_public_key --key payload_key.pem --output apex_pubkey || exit 1
 		fi
 	fi
 
@@ -788,16 +790,16 @@ EOF
 		local size_kb; size_kb=$(du -sk "$pkgdir" | awk '{print $1}')
 		local size_bytes=$(( (size_kb + 2048) * 1024 ))
 		local part_size=$(( size_bytes + 1048576 ))
-		mke2fs -F -O ^has_journal -b 4096 -m 0 -t ext4 -d "$pkgdir"/ apex_payload.img $((size_bytes / 1024))K >/dev/null 2>&1
+		mke2fs -F -O ^has_journal -b 4096 -m 0 -t ext4 -d "$pkgdir"/ apex_payload.img $((size_bytes / 1024))K >/dev/null 2>&1 || exit 1
 		
 		avbtool add_hashtree_footer \
 			--do_not_generate_fec \
 			--image apex_payload.img \
 			--partition_size $part_size \
 			--partition_name apex_payload \
-			--key payload_key.pem
+			--key payload_key.pem || exit 1
 	else
-		mkfs.erofs -z lz4hc apex_payload.img "$pkgdir"/ >/dev/null 2>&1
+		mkfs.erofs -z lz4hc apex_payload.img "$pkgdir"/ >/dev/null 2>&1 || exit 1
 		local img_size; img_size=$(stat -c%s apex_payload.img)
 		local part_size=$((img_size + 1048576))
 		
@@ -806,22 +808,22 @@ EOF
 			--image apex_payload.img \
 			--partition_size $part_size \
 			--partition_name apex_payload \
-			--key payload_key.pem
+			--key payload_key.pem || exit 1
 	fi
 
 	# 4. Packaging
 	msg2 "$(gettext "Packaging APEX...")"
-	zip -0 my_apex_unaligned.apex apex_payload.img apex_pubkey apex_manifest.json -j compiled/AndroidManifest.xml >/dev/null
+	zip -0 my_apex_unaligned.apex apex_payload.img apex_pubkey apex_manifest.json -j compiled/AndroidManifest.xml >/dev/null || exit 1
 
-	zipalign -f -v 4096 my_apex_unaligned.apex "$apex_file" >/dev/null
-	apksigner sign --key container.pk8 --cert container.x509.pem "$apex_file"
+	zipalign -f -v 4096 my_apex_unaligned.apex "$apex_file" >/dev/null || exit 1
+	apksigner sign --key container.pk8 --cert container.x509.pem "$apex_file" || exit 1
 
 	if [[ "${compress_apex:-false}" == "true" ]]; then
 		msg2 "$(gettext "Compressing to CAPEX format...")"
 		local capex_file="${apex_file%.apex}.capex"
-		zip -0 "$capex_file" apex_pubkey apex_manifest.json >/dev/null
-		mv "$apex_file" original_apex
-		zip -9 "$capex_file" original_apex >/dev/null
+		zip -0 "$capex_file" apex_pubkey apex_manifest.json >/dev/null || exit 1
+		mv "$apex_file" original_apex || exit 1
+		zip -9 "$capex_file" original_apex >/dev/null || exit 1
 		rm -f original_apex
 	fi
 
