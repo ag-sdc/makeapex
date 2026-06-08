@@ -3,6 +3,7 @@ pkgname=makeapex
 pkgver=1.0.0
 pkgrel=1
 arch=('x86_64')
+api_level=36
 _x86_64_microarch_level=1
 payload_fs=erofs
 source=("makeapex::git+file://${startdir}/../../")

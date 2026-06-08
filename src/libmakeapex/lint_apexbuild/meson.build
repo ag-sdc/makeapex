@@ -1,6 +1,7 @@
 libmakeapex_module = 'lint_apexbuild'
 
 sources = [
+  'api_level.sh.in',
   'arch.sh.in',
   'arch_specific.sh.in',
   'backup.sh.in',

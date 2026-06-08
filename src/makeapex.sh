@@ -666,7 +666,7 @@ create_package() {
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
   package="$full_pkgname" android:versionCode="1" android:versionName="$fullver">
-  <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="29"/>
+  <uses-sdk android:minSdkVersion="${api_level:-32}" android:targetSdkVersion="${api_level:-32}"/>
   <application android:extractNativeLibs="false" android:hasCode="false" />
 </manifest>
 EOF
@@ -709,13 +709,16 @@ EOF
 		echo "}" >> apex_manifest.json
 	fi
 
-	local ANDROID_JAR=$(ls $HOME/Android/Sdk/platforms/android-*/android.jar 2>/dev/null | tail -n 1)
-	if [[ -z $ANDROID_JAR ]]; then
-		error "android.jar not found in $HOME/Android/Sdk/platforms/android-*/android.jar"
+	local ANDROID_SDK=${ANDROID_HOME:-"$HOME/Android/Sdk"}
+	local api=${api_level:-32}	
+
+	local ANDROID_JAR="$(find $ANDROID_SDK/platforms	-iname "android-${api}*" -print -quit 2>/dev/null)/android.jar"
+	if [ -z "$ANDROID_JAR" ]; then
+		error "android.jar not found in $ANDROID_SDK/platforms/android-${api}*/android.jar"
 		exit 1
 	fi
 	
-	local BUILD_TOOLS_DIR=$(ls -d $HOME/Android/Sdk/build-tools/* 2>/dev/null | tail -n 1)
+	local BUILD_TOOLS_DIR=$(ls -d $$ANDROID_SDK/build-tools/* 2>/dev/null | tail -n 1)
 	if [[ -n $BUILD_TOOLS_DIR ]]; then
 		export PATH="$BUILD_TOOLS_DIR:$PATH"
 	fi

@@ -34,6 +34,12 @@ If you need to create any custom variables for use in your build process, it is
 recommended to prefix their name with an '_' (underscore).
 This will prevent any possible name clashes with internal makeapex variables.
 
+*api_level*::
+	The Android API level targeted by this APEX package (integer from 29 to 37).
+	This value determines the `minSdkVersion` and `targetSdkVersion` in the
+	generated `AndroidManifest.xml` and is used to resolve the correct `android.jar`
+	SDK bindings during compilation and linking. If omitted, it defaults to 32.
+
 *pkgname*::
 	Either the name of the package or an array of names for split packages.
 	Valid characters for members of this array are alphanumerics, and any of the
