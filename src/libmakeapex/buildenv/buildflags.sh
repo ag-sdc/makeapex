@@ -1,4 +1,5 @@
 #!/usr/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   buildflags.sh - Clear user-specified buildflags if requested
 #
@@ -29,6 +30,7 @@ build_options+=('buildflags')
 
 buildenv_buildflags() {
 	if check_option "buildflags" "n"; then
-		unset ${buildenv_vars[@]}
+		# shellcheck disable=SC2068
+		unset "${buildenv_vars[@]}"
 	fi
 }

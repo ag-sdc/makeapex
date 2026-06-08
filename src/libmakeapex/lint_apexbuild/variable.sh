@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   variable.sh - Check that variables are or are not arrays as appropriate
 #
@@ -34,21 +35,24 @@ lint_variable() {
 	local i a pkg out bad ret=0
 
 	# global variables
-	for i in ${apexbuild_schema_arrays[@]}; do
-		if declare -p $i > /dev/null 2>&1; then
-			if ! is_array $i; then
+	# shellcheck disable=SC2068
+	for i in "${apexbuild_schema_arrays[@]}"; do
+		if declare -p "$i" > /dev/null 2>&1; then
+			if ! is_array "$i"; then
 				error "$(gettext "%s should be an array")" "$i"
 				ret=1
 			fi
 		fi
 	done
 
-	for a in ${arch[@]}; do
+	# shellcheck disable=SC2068
+	for a in "${arch[@]}"; do
 		[[ $a == "any" ]] && continue
 
-		for i in ${apexbuild_schema_arch_arrays[@]}; do
+		# shellcheck disable=SC2068
+		for i in "${apexbuild_schema_arch_arrays[@]}"; do
 			if declare -p "${i}_${a}" > /dev/null 2>&1; then
-				if ! is_array ${i}_${a}; then
+				if ! is_array "${i}"_"${a}"; then
 					error "$(gettext "%s should be an array")" "${i}_${a}"
 					ret=1
 				fi
@@ -56,9 +60,10 @@ lint_variable() {
 		done
 	done
 
-	for i in ${apexbuild_schema_strings[@]}; do
+	# shellcheck disable=SC2068
+	for i in "${apexbuild_schema_strings[@]}"; do
 		if declare -p "$i" > /dev/null 2>&1; then
-			if is_array $i; then
+			if is_array "$i"; then
 				error "$(gettext "%s should not be an array")" "$i"
 				ret=1
 			fi
@@ -66,18 +71,22 @@ lint_variable() {
 	done
 
 	# package function variables
-	for pkg in ${pkgname[@]}; do
-		for i in ${apexbuild_schema_arrays[@]}; do
-			if extract_function_variable "package_$pkg" $i 0 out; then
+	# shellcheck disable=SC2068
+	for pkg in "${pkgname[@]}"; do
+		# shellcheck disable=SC2068
+		for i in "${apexbuild_schema_arrays[@]}"; do
+			if extract_function_variable "package_$pkg" "$i" 0 out; then
 				error "$(gettext "%s should be an array")" "$i"
 				ret=1
 			fi
 		done
 
-		for a in ${arch[@]}; do
+		# shellcheck disable=SC2068
+		for a in "${arch[@]}"; do
 			[[ $a == "any" ]] && continue
 
-			for i in ${apexbuild_schema_arch_arrays[@]}; do
+			# shellcheck disable=SC2068
+			for i in "${apexbuild_schema_arch_arrays[@]}"; do
 				if extract_function_variable "package_$pkg" "${i}_${a}" 0 out; then
 					error "$(gettext "%s should be an array")" "${i}_${a}"
 					ret=1
@@ -85,8 +94,9 @@ lint_variable() {
 			done
 		done
 
-		for i in ${apexbuild_schema_strings[@]}; do
-			if extract_function_variable "package_$pkg" $i 1 out; then
+		# shellcheck disable=SC2068
+		for i in "${apexbuild_schema_strings[@]}"; do
+			if extract_function_variable "package_$pkg" "$i" 1 out; then
 				error "$(gettext "%s should not be an array")" "$i"
 				ret=1
 			fi
@@ -99,9 +109,10 @@ lint_variable() {
 lint_array() {
 	local i var ret=0
 
-	for i in ${apexbuild_schema_arrays[@]}; do
+	# shellcheck disable=SC2068
+	for i in "${apexbuild_schema_arrays[@]}"; do
 		local l=()
-		get_apexbuild_all_split_attributes $i l
+		get_apexbuild_all_split_attributes "$i" l
 
 		for var in "${l[@]}"; do
 			if [[ -z $var ]]; then

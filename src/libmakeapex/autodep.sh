@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   autodep.sh - functions for automatically adding depends/provides
 #
@@ -32,7 +33,8 @@ done
 readonly -a autodep_functions
 
 generate_autodeps() {
-	for func in ${autodep_functions[@]}; do
+	# shellcheck disable=SC2068
+	for func in "${autodep_functions[@]}"; do
 		$func
 	done
 }

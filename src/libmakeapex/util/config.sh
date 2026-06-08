@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   config.sh - functions for handling makeapex config files
 #
@@ -39,13 +40,13 @@ source_makeapex_config() {
 		source_safe "$MAKEAPEX_CONF"
 		if [[ -d "$MAKEAPEX_CONF.d" ]] && compgen -G "$MAKEAPEX_CONF.d"/'*.conf' > /dev/null; then
 			for c in "$MAKEAPEX_CONF.d"/*.conf; do
-				source_safe $c
+				source_safe "$c"
 			done
 		fi
 	else
 		error "$(gettext "%s not found.")" "$MAKEAPEX_CONF"
 		plainerr "$(gettext "Aborting...")"
-		exit $E_CONFIG_ERROR
+		exit "$E_CONFIG_ERROR"
 	fi
 
 	# Source user-specific makeapex.conf overrides, but only if no override config
@@ -68,7 +69,7 @@ load_makeapex_config() {
 	local MAKEAPEX_CONF=${1:-${MAKEAPEX_CONF:-$confdir/makeapex.conf}}
 
 	# preserve environment variables to override makeapex.conf
-	local restore_envvars=$(
+	local restore_envvars; restore_envvars=$(
 		for var in PKGDEST SRCDEST SRCPKGDEST LOGDEST BUILDDIR PKGEXT SRCEXT GPGKEY PACKAGER CARCH; do
 			# the output of 'declare -p' results in locally scoped values when used within a function
 			[[ -v $var ]] && printf '%s=%s\n' "$var" "${!var@Q}"

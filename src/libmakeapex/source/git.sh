@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   git.sh - function for handling the download and "extraction" of Git sources
 #
@@ -39,12 +40,12 @@ download_git() {
 
 	local netfile=$1
 
-	local dir=$(get_filepath "$netfile")
+	local dir; dir=$(get_filepath "$netfile")
 	[[ -z "$dir" ]] && dir="$SRCDEST/$(get_filename "$netfile")"
 
-	local repo=$(get_filename "$netfile")
+	local repo; repo=$(get_filename "$netfile")
 
-	local url=$(get_url "$netfile")
+	local url; url=$(get_url "$netfile")
 	url=${url#git+}
 	url=${url%%#*}
 	url=${url%%\?*}
@@ -62,11 +63,11 @@ download_git() {
 		# to avoid breaking when the option is globally set to explicit
 
 		# Make sure we are fetching the right repo
-		local remote_url="$(git -c safe.bareRepository=all config --get remote.origin.url)"
+		local remote_url; remote_url="$(git -c safe.bareRepository=all config --get remote.origin.url)"
 		if [[ "${url%%.git}" != "${remote_url%%.git}" ]] ; then
 			error "$(gettext "%s is not a clone of %s")" "$dir" "$url"
 			plainerr "$(gettext "Aborting...")"
-			exit $E_NOT_A_CLONE_OF
+			exit "$E_NOT_A_CLONE_OF"
 		fi
 		msg2 "$(gettext "Updating %s %s repo...")" "${repo}" "git"
 		if ! git -c safe.bareRepository=all fetch --all -p; then
@@ -78,7 +79,7 @@ download_git() {
 	# Sanitize the cloned repo
 	# $GIT_DIR/info/attributes overrides .gitattributes, and thus no files in the repository
 	# can be altered by git features like export-subst or export-ignore
-	local MAKEAPEX_GIT_DIR="$(git -c safe.bareRepository=all -C "$dir" rev-parse --absolute-git-dir)"
+	local MAKEAPEX_GIT_DIR; MAKEAPEX_GIT_DIR="$(git -c safe.bareRepository=all -C "$dir" rev-parse --absolute-git-dir)"
 	mkdir -p "$MAKEAPEX_GIT_DIR/info"
 	echo "* -export-subst -export-ignore" > "$MAKEAPEX_GIT_DIR/info/attributes"
 }
@@ -86,14 +87,14 @@ download_git() {
 extract_git() {
 	local netfile=$1 tagname
 
-	local fragment=$(get_uri_fragment "$netfile")
-	local repo=$(get_filename "$netfile")
+	local fragment; fragment=$(get_uri_fragment "$netfile")
+	local repo; repo=$(get_filename "$netfile")
 
-	local dir=$(get_filepath "$netfile")
+	local dir; dir=$(get_filepath "$netfile")
 	[[ -z "$dir" ]] && dir="$SRCDEST/$(get_filename "$netfile")"
 
 	msg2 "$(gettext "Creating working copy of %s %s repo...")" "${repo}" "git"
-	pushd "$srcdir" &>/dev/null
+	pushd "$srcdir" &>/dev/null || exit
 
 	local updating=0
 	if [[ -d "${dir##*/}" ]]; then
@@ -146,7 +147,7 @@ extract_git() {
 		fi
 	fi
 
-	popd &>/dev/null
+	popd &>/dev/null || exit
 }
 
 calc_checksum_git() {

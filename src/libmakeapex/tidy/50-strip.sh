@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   strip.sh - Strip debugging symbols from binary files
 #
@@ -68,7 +69,7 @@ package_source_files() {
 
 safe_objcopy() {
 	local binary=$1; shift
-	local tempfile=$(mktemp "$binary.XXXXXX")
+	local tempfile; tempfile=$(mktemp "$binary.XXXXXX")
 	objcopy "$@" "$binary" "$tempfile"
 	cat "$tempfile" > "$binary"
 	rm "$tempfile"
@@ -78,7 +79,7 @@ collect_debug_symbols() {
 	local binary=$1; shift
 
 	if check_option "debug" "y"; then
-		local bid=$(build_id "$binary")
+		local bid; bid=$(build_id "$binary")
 
 		# has this file already been stripped
 		if [[ -n "$bid" ]]; then
@@ -123,7 +124,7 @@ collect_debug_symbols() {
 
 safe_strip_file(){
 	local binary=$1; shift
-	local tempfile=$(mktemp "$binary.XXXXXX")
+	local tempfile; tempfile=$(mktemp "$binary.XXXXXX")
 	if strip "$@" "$binary" -o "$tempfile"; then
 		cat "$tempfile" > "$binary"
 	fi
@@ -133,7 +134,7 @@ safe_strip_file(){
 safe_strip_lto() {
 	local binary=$1;
 
-	local tempfile=$(mktemp "$binary.XXXXXX")
+	local tempfile; tempfile=$(mktemp "$binary.XXXXXX")
 	if strip -R .gnu.lto_* -R .gnu.debuglto_* -N __gnu_lto_v1 "$binary" -o "$tempfile"; then
 		cat "$tempfile" > "$binary"
 	fi
@@ -175,7 +176,7 @@ process_file_stripping() {
 			return ;;
 	esac
 	(( ! STATICOBJ )) && collect_debug_symbols "$binary"
-	safe_strip_file "$binary" ${strip_flags}
+	safe_strip_file "$binary" "${strip_flags}"
 	(( STATICOBJ )) && safe_strip_lto "$binary"
 }
 
@@ -202,7 +203,9 @@ tidy_strip() {
 				while IFS= read -rd '' binary ; do
 					# Be sure to keep the number of concurrently running processes less
 					# than limit value to prevent an accidental fork bomb.
+					# shellcheck disable=SC2207
 					jobs=($(jobs -p))
+					# shellcheck disable=SC2004
 					(( ${#jobs[@]} >= $NPROC )) && wait -n "${jobs[@]}"
 
 					process_file_stripping "$binary" &
@@ -219,7 +222,7 @@ tidy_strip() {
 		declare -A hardlinks
 		while IFS= read -rd '' binary ; do
 			if check_option "debug" "y"; then
-				local inode="$(@INODECMD@ -- "$binary")"
+				local inode; inode="$(@INODECMD@ -- "$binary")"
 				inode=${inode%% *}
 				if [[ -z "${hardlinks[$inode]}" ]]; then
 					hardlinks[$inode]="$binary"

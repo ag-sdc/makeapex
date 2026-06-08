@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   purge.sh - Remove unwanted files from the package
 #
@@ -38,7 +39,7 @@ tidy_purge() {
 			if [[ ${pt} = "${pt//\/}" ]]; then
 				find . ! -type d -name "${pt}" -exec rm -f -- '{}' +
 			else
-				rm -f ${pt}
+				rm -f "${pt}"
 			fi
 		done
 	fi

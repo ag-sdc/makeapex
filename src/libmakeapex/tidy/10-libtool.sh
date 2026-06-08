@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   libtool.sh - Remove libtool files from the package
 #
@@ -32,6 +33,7 @@ tidy_remove+=('tidy_libtool')
 
 tidy_libtool() {
 	if check_option "libtool" "n"; then
+		# shellcheck disable=SC2140
 		msg2 "$(gettext "Removing "%s" files...")" "libtool"
 		find . ! -type d -name "*.la" -exec rm -f -- '{}' +
 	fi

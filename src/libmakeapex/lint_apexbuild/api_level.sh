@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   api_level.sh - Check the 'api_level' variable conforms to requirements.
 #

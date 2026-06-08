@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   makedepends.sh - Check the 'makedepends' array conforms to requirements.
 #
@@ -38,14 +39,14 @@ lint_makedepends() {
 	get_apexbuild_all_split_attributes makedepends makedepends_list
 
 	# this function requires extglob - save current status to restore later
-	local shellopts=$(shopt -p extglob)
+	local shellopts; shellopts=$(shopt -p extglob)
 	shopt -s extglob
 
 	for makedepend in "${makedepends_list[@]}"; do
 		name=${makedepend%%@(<|>|=|>=|<=)*}
 		lint_one_pkgname makedepends "$name" || ret=1
 		if [[ $name != "$makedepend" ]]; then
-			ver=${makedepend##$name@(<|>|=|>=|<=)}
+			ver=${makedepend##"$name"@(<|>|=|>=|<=)}
 			check_fullpkgver "$ver" makedepends || ret=1
 		fi
 	done

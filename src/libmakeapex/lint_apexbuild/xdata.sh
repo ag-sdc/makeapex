@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   xdata.sh - Check the 'xdata' array conforms to requirements.
 #

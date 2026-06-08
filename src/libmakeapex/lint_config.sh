@@ -1,4 +1,5 @@
 #!/usr/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   lint_config.sh - functions for checking for makeapex.conf errors
 #
@@ -39,7 +40,8 @@ readonly -a lint_config_functions
 lint_config() {
 	local ret=0
 
-	for func in ${lint_config_functions[@]}; do
+	# shellcheck disable=SC2068
+	for func in "${lint_config_functions[@]}"; do
 		$func || ret=1
 	done
 	return $ret

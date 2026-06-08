@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   file.sh - function for handling the download and extraction of source files
 #
@@ -31,21 +32,22 @@ source "$MAKEAPEX_LIBRARY/util/apexbuild.sh"
 download_file() {
 	local netfile=$1
 
-	local filepath=$(get_filepath "$netfile")
+	local filepath; filepath=$(get_filepath "$netfile")
 	if [[ -n "$filepath" ]]; then
 		msg2 "$(gettext "Found %s")" "${filepath##*/}"
 		return
 	fi
 
-	local proto=$(get_protocol "$netfile")
+	local proto; proto=$(get_protocol "$netfile")
 
 	# find the client we should use for this URL
 	local -a cmdline
+	# shellcheck disable=SC2162
 	IFS=' ' read -a cmdline < <(get_downloadclient "$proto")
 	wait $! || exit
 
-	local filename=$(get_filename "$netfile")
-	local url=$(get_url "$netfile")
+	local filename; filename=$(get_filename "$netfile")
+	local url; url=$(get_url "$netfile")
 
 	if [[ $proto = "scp" ]]; then
 		# scp downloads should not pass the protocol in the url
@@ -85,8 +87,8 @@ download_file() {
 extract_file() {
 	local netfile=$1
 
-	local file=$(get_filename "$netfile")
-	local filepath=$(get_filepath "$file")
+	local file; file=$(get_filename "$netfile")
+	local filepath; filepath=$(get_filepath "$file")
 	rm -f "$srcdir/${file}"
 	ln -s "$filepath" "$srcdir/"
 
@@ -97,7 +99,7 @@ extract_file() {
 	fi
 
 	# do not rely on extension for file type
-	local file_type=$(@FILECMD@ -bizL -- "$file")
+	local file_type; file_type=$(@FILECMD@ -bizL -- "$file")
 	local ext=${file##*.}
 	local cmd=''
 	case "$file_type" in

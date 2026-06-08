@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   arch_specific.sh - Check that arch specific variables can be arch specific.
 #
@@ -36,9 +37,11 @@ lint_arch_specific() {
 	local i a pkg ret=0
 
 	# global variables
-	for a in ${arch[@]}; do
+	# shellcheck disable=SC2068
+	for a in "${arch[@]}"; do
 		if [[ $a == "any" ]]; then
-			for i in ${apexbuild_schema_arch_arrays[@]}; do
+			# shellcheck disable=SC2068
+			for i in "${apexbuild_schema_arch_arrays[@]}"; do
 				if declare -p "${i}_${a}" > /dev/null 2>&1; then
 					error "$(gettext "Can not provide architecture specific variables for the '%s' architecture: %s")" "any" "${i}_${a}"
 					ret=1
@@ -46,8 +49,10 @@ lint_arch_specific() {
 			done
 		fi
 
-		for i in ${apexbuild_schema_arrays[@]} ${apexbuild_schema_strings[@]}; do
-			in_array "$i" ${apexbuild_schema_arch_arrays[@]} && continue
+		# shellcheck disable=SC2068
+		for i in "${apexbuild_schema_arrays[@]}" "${apexbuild_schema_strings[@]}"; do
+			# shellcheck disable=SC2068
+			in_array "$i" "${apexbuild_schema_arch_arrays[@]}" && continue
 			v="${i}_${a}"
 			if declare -p "$v" > /dev/null 2>&1; then
 				error "$(gettext "%s can not be architecture specific: %s")" "$i" "${i}_${a}"
@@ -57,10 +62,13 @@ lint_arch_specific() {
 	done
 
 	# package function variables
-	for pkg in ${pkgname[@]}; do
-		for a in ${arch[@]}; do
+	# shellcheck disable=SC2068
+	for pkg in "${pkgname[@]}"; do
+		# shellcheck disable=SC2068
+		for a in "${arch[@]}"; do
 			if [[ $a == "any" ]]; then
-				for i in ${apexbuild_schema_arch_arrays[@]}; do
+				# shellcheck disable=SC2068
+				for i in "${apexbuild_schema_arch_arrays[@]}"; do
 					if exists_function_variable "package_$pkg" "${i}_${a}"; then
 						error "$(gettext "Can not provide architecture specific variables for the '%s' architecture: %s")" "any" "${i}_${a}"
 						ret=1
@@ -68,8 +76,10 @@ lint_arch_specific() {
 				done
 			fi
 
-			for i in ${apexbuild_schema_arrays[@]} ${apexbuild_schema_strings[@]}; do
-				in_array "$i" ${apexbuild_schema_arch_arrays[@]} && continue
+			# shellcheck disable=SC2068
+			for i in "${apexbuild_schema_arrays[@]}" "${apexbuild_schema_strings[@]}"; do
+				# shellcheck disable=SC2068
+				in_array "$i" "${apexbuild_schema_arch_arrays[@]}" && continue
 				if exists_function_variable "package_$pkg" "${i}_${a}"; then
 					error "$(gettext "%s can not be architecture specific: %s")" "$i" "${i}_${a}"
 					ret=1

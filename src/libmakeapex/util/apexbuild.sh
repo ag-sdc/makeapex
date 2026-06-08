@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   apexbuild.sh - functions to extract information from APEXBUILD files
 #
@@ -49,6 +50,8 @@ array_build() {
 	# Read values indirectly via their index. This approach gives us support
 	# for associative arrays, sparse arrays, and empty strings as elements.
 	for i in "${keys[@]}"; do
+		# shellcheck disable=SC1087
+		# shellcheck disable=SC1087
 		values+=("printf -v '$dest[$i]' %s \"\${$src[$i]}\";")
 	done
 
@@ -76,6 +79,8 @@ extract_function_variable() {
 	# $3: multivalued
 	# $4: name of output var
 
+	# shellcheck disable=SC1007
+	# shellcheck disable=SC1007
 	local funcname=$1 attr=$2 isarray=$3 outputvar=$4 attr_regex= decl= r=1
 
 	if (( isarray )); then
@@ -85,7 +90,7 @@ extract_function_variable() {
 	fi
 
 	# this function requires extglob - save current status to restore later
-	local shellopts=$(shopt -p extglob)
+	local shellopts; shellopts=$(shopt -p extglob)
 	shopt -s extglob
 
 	while read -r; do
@@ -187,6 +192,7 @@ get_pkg_arch() {
 		local arch_override
 		get_apexbuild_attribute "$1" arch 1 arch_override
 		(( ${#arch_override[@]} == 0 )) && arch_override=("${arch[@]}")
+		# shellcheck disable=SC2128
 		if [[ $arch_override = "any" ]]; then
 			printf "%s\n" "any"
 		else
@@ -200,11 +206,12 @@ get_pkg_arch() {
 }
 
 print_all_package_names() {
-	local version=$(get_full_version)
+	local version; version=$(get_full_version)
 	local architecture pkg opts a
-	for pkg in ${pkgname[@]}; do
+	# shellcheck disable=SC2068
+	for pkg in "${pkgname[@]}"; do
 		# Split package not relevant for current CARCH
-		if ! architecture=$(get_pkg_arch $pkg); then
+		if ! architecture=$(get_pkg_arch "$pkg"); then
 			continue
 		fi
 		printf "%s/%s-%s-%s%s\n" "$PKGDEST" "$pkg" "$version" "$architecture" "$PKGEXT"

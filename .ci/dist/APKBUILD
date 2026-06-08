@@ -1,5 +1,7 @@
-# Contributor: Shadichy <shadichy@example.com>
-# Maintainer: Shadichy <shadichy@example.com>
+# shellcheck shell=bash disable=2034,2154,2164
+
+# Contributor: Shadichy <shadichy@blisslabs.org>
+# Maintainer: Shadichy <shadichy@blisslabs.org>
 pkgname=makeapex
 pkgver=1.0.0
 pkgrel=1

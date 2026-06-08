@@ -1,4 +1,5 @@
 #!/usr/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   makeflags.sh - Clear user-specified makeflags if requested
 #

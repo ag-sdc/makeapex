@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   parseopts.sh - getopt_long-like parser
 #
@@ -43,6 +44,9 @@
 #   0: parse success
 #   1: parse failure (error message supplied)
 parseopts() {
+	# shellcheck disable=SC1007
+	# shellcheck disable=SC1007
+	# shellcheck disable=SC1007
 	local opt= optarg= i= shortopts=$1
 	local -a longopts=() unused_argv=()
 
@@ -67,6 +71,7 @@ parseopts() {
 			1)
 				# success, override with opt and return arg req (0 == none, 1 == required, 2 == optional)
 				opt=${longmatch%[:?]}
+				# shellcheck disable=SC2128
 				case $longmatch in
 					*:)  return 1 ;;
 					*\?) return 2 ;;
@@ -78,6 +83,7 @@ parseopts() {
 				return 255 ;;
 			*)
 				# fail, ambiguous match
+				# shellcheck disable=SC2059
 				printf "${0##*/}: $(gettext "option '%s' is ambiguous; possibilities:")" "--$1"
 				printf " '%s'" "${longmatch[@]%[:?]}"
 				printf '\n'
@@ -145,6 +151,7 @@ parseopts() {
 					0)
 						# parse failure
 						if [[ $1 = *=* ]]; then
+							# shellcheck disable=SC2059
 							printf "${0##*/}: $(gettext "option '%s' does not allow an argument")\n" "--$opt" >&2
 							OPTRET=(--)
 							return 1
@@ -163,6 +170,7 @@ parseopts() {
 							shift
 						# parse failure
 						else
+							# shellcheck disable=SC2059
 							printf "${0##*/}: $(gettext "option '%s' requires an argument")\n" "--$opt" >&2
 							OPTRET=(--)
 							return 1

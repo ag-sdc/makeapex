@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   provides.sh - Check the 'provides' array conforms to requirements.
 #
@@ -38,7 +39,7 @@ lint_provides() {
 	get_apexbuild_all_split_attributes provides provides_list
 
 	# this function requires extglob - save current status to restore later
-	local shellopts=$(shopt -p extglob)
+	local shellopts; shellopts=$(shopt -p extglob)
 	shopt -s extglob
 
 	for provide in "${provides_list[@]}"; do
@@ -50,7 +51,7 @@ lint_provides() {
 		name=${provide%=*}
 		lint_one_pkgname provides "$name" || ret=1
 		if [[ $name != "$provide" ]]; then
-			ver=${provide##$name=}
+			ver=${provide##"$name"=}
 			check_fullpkgver "$ver" provides || ret=1
 		fi
 	done

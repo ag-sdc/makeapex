@@ -1,4 +1,5 @@
 #!/usr/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   compiler.sh - CCache, Sccache and DistCC compilation
 #   ccache - Cache compilations and reuse them to save time on repetitions
@@ -45,7 +46,7 @@ buildenv_ccache() {
 buildenv_distcc() {
 	if check_buildoption "distcc" "y"; then
 		if (( using_ccache )); then
-			local distcc=$(type -p distcc)
+			local distcc; distcc=$(type -p distcc)
 			if [[ " $CCACHE_PREFIX " != *" ${distcc} "* ]]; then
 				export CCACHE_PREFIX="${CCACHE_PREFIX:+$CCACHE_PREFIX }${distcc}"
 			fi

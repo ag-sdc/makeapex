@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   library_depends.sh - Automatically add library requirements to depends
 #
@@ -31,9 +32,9 @@ library_depends() {
 		declare -a libdeps
 
 		while IFS= read -rd '' filename; do
-			for sofile in $(LC_ALL=C readelf -d $filename 2>/dev/null | sed -nr 's/.*Shared library: \[(.*)\].*/\1/p'); do
+			for sofile in $(LC_ALL=C readelf -d "$filename" 2>/dev/null | sed -nr 's/.*Shared library: \[(.*)\].*/\1/p'); do
 				# get the full path of the library
-				libpath=$(ldd $filename | sed -nr "s/.$sofile => (.*) \(.*\)/\1/p")
+				libpath=$(ldd "$filename" | sed -nr "s/.$sofile => (.*) \(.*\)/\1/p")
 
 				# if ldd can not find the library, it is likely part of the package and not in filesystem
 				if [[ -z $libpath ]]; then
@@ -50,7 +51,9 @@ library_depends() {
 				libpath=${libpath%/*}
 
 				unset prefix
-				for libdir in ${LIB_DIRS[@]}; do
+				# shellcheck disable=SC2068
+				for libdir in "${LIB_DIRS[@]}"; do
+					# shellcheck disable=SC2053
 					if [[ ${libdir#*:} == ${libpath} ]]; then
 						prefix=${libdir%%:*}
 					fi
@@ -70,6 +73,7 @@ library_depends() {
 
 		done < <(find "$pkgdir" -type f -perm -u+x -print0)
 
+		# shellcheck disable=SC2207
 		depends+=($(printf '%s\n' "${libdeps[@]}" | LC_ALL=C sort -u))
 	fi
 }

@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   buildenv.sh - Check that the BUILDENV and OPTIONS arrays are valid
 #

@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   package_function_variable.sh - Check variables inside the package function.
 #
@@ -36,12 +37,16 @@ lint_package_function_variable() {
 	local i a pkg ret=0
 
 	# package function variables
-	for pkg in ${pkgname[@]}; do
-		for a in ${arch[@]}; do
+	# shellcheck disable=SC2068
+	for pkg in "${pkgname[@]}"; do
+		# shellcheck disable=SC2068
+		for a in "${arch[@]}"; do
 			[[ $a == "any" ]] && continue
 
-			for i in ${apexbuild_schema_arrays[@]} ${apexbuild_schema_strings[@]}; do
-				in_array "$i" ${apexbuild_schema_package_overrides[@]} && continue
+			# shellcheck disable=SC2068
+			for i in "${apexbuild_schema_arrays[@]}" "${apexbuild_schema_strings[@]}"; do
+				# shellcheck disable=SC2068
+				in_array "$i" "${apexbuild_schema_package_overrides[@]}" && continue
 				if exists_function_variable "package_$pkg" "${i}_${a}"; then
 					error "$(gettext "%s can not be set inside a package function")" "${i}_${a}"
 					ret=1
@@ -49,8 +54,10 @@ lint_package_function_variable() {
 			done
 		done
 
-		for i in ${apexbuild_schema_arrays[@]} ${apexbuild_schema_strings[@]}; do
-			in_array "$i" ${apexbuild_schema_package_overrides[@]} && continue
+		# shellcheck disable=SC2068
+		for i in "${apexbuild_schema_arrays[@]}" "${apexbuild_schema_strings[@]}"; do
+			# shellcheck disable=SC2068
+			in_array "$i" "${apexbuild_schema_package_overrides[@]}" && continue
 			if exists_function_variable "package_$pkg" "$i"; then
 				error "$(gettext "%s can not be set inside a package function")" "$i"
 				ret=1

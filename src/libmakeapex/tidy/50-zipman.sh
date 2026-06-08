@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   zipman.sh - Compress man and info pages
 #
@@ -48,6 +49,7 @@ tidy_zipman() {
 				fi
 			done
 			if [[ -z ${files[$inode]} ]]; then
+				# shellcheck disable=SC2004
 				files[$inode]=$file
 				gzip -9 -n -f "$file"
 			else

@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   dotfiles.sh - check for dotfiles in the package root
 #
@@ -30,7 +31,7 @@ lint_package_functions+=('check_dotfiles')
 check_dotfiles() {
 	local ret=0
 
-	local shellopts=$(shopt -p nullglob)
+	local shellopts; shellopts=$(shopt -p nullglob)
 	shopt -s nullglob
 
 	for f in "$pkgdir"/.*; do

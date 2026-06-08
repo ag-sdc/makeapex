@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   source_date_epoch.sh - handle SOURCE_DATE_EPOCH variable for reproducibility
 #

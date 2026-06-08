@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   docs.sh - Remove documentation files from the package
 #
@@ -32,6 +33,7 @@ tidy_remove+=('tidy_docs')
 tidy_docs() {
 	if check_option "docs" "n" && [[ -n ${DOC_DIRS[*]} ]]; then
 		msg2 "$(gettext "Removing doc files...")"
-		rm -rf -- ${DOC_DIRS[@]}
+		# shellcheck disable=SC2068
+		rm -rf -- "${DOC_DIRS[@]}"
 	fi
 }

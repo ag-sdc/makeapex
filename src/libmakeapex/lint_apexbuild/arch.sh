@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   arch.sh - Check the 'arch' array conforms to requirements.
 #
@@ -40,7 +41,8 @@ validate_arch_entries() {
 		fi
 	fi
 
-	if (( ${#arch[@]} != $(printf "%s\n" ${arch[@]} | sort -u | wc -l) )); then
+	# shellcheck disable=SC2068
+	if (( ${#arch[@]} != $(printf "%s\n" "${arch[@]}" | sort -u | wc -l) )); then
 		error "$(gettext "%s can not contain duplicate values")" 'arch'
 		ret=1
 	fi
@@ -67,7 +69,7 @@ validate_arch_global() {
 		ret=1
 	fi
 
-	return $ret
+	return "$ret"
 }
 
 validate_arch_override() {
@@ -83,7 +85,7 @@ validate_arch_override() {
 	validate_arch_entries "${override[@]}"
 
 	if in_array "any" "${override[@]}"; then
-		return $ret
+		return "$ret"
 	fi
 
 	for o in "${override[@]}"; do
@@ -93,7 +95,7 @@ validate_arch_override() {
 		fi
 	done
 
-	return $ret
+	return "$ret"
 }
 
 lint_arch() {

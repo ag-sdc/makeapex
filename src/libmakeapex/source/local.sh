@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   local.sh - function for handling the "download" of local sources
 #
@@ -30,12 +31,12 @@ source "$MAKEAPEX_LIBRARY/util/apexbuild.sh"
 
 download_local() {
 	local netfile=$1
-	local filepath=$(get_filepath "$netfile")
+	local filepath; filepath=$(get_filepath "$netfile")
 
 	if [[ -n "$filepath" ]]; then
 		msg2 "$(gettext "Found %s")" "${filepath##*/}"
 	else
-		local filename=$(get_filename "$netfile")
+		local filename; filename=$(get_filename "$netfile")
 		error "$(gettext "%s was not found in the build directory and is not a URL.")" "$filename"
 		exit 1 # $E_MISSING_FILE
 	fi

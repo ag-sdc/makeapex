@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   install.sh - Check the files in the 'install' array exist.
 #
@@ -37,6 +38,7 @@ lint_install() {
 	install_list=("${install[@]}")
 	# set pkgname the same way we do for running package(), this way we get
 	# the right value in extract_function_variable
+	# shellcheck disable=SC2206
 	local pkgname_backup=(${pkgname[@]})
 	local pkgname
 	for pkgname in "${pkgname_backup[@]}"; do

@@ -1,4 +1,9 @@
-org=com.shadichy
+# shellcheck shell=bash disable=2034,2154,2164
+
+# Contributor: Shadichy <shadichy@blisslabs.org>
+# Maintainer: Shadichy <shadichy@blisslabs.org>
+
+org=vn.shadichy
 pkgname=makeapex
 pkgver=1.0.0
 pkgrel=1

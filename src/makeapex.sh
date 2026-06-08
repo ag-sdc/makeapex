@@ -1,7 +1,9 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   makeapex - make packages compatible for use with pacman
 #
+#   Copyright (c) 2026 by Bui Gia Vien <shadichy@blisslabs.org>
 #   Copyright (c) 2006-2025 Pacman Development Team <pacman-dev@lists.archlinux.org>
 #   Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
 #   Copyright (c) 2005 by Aurelien Foret <orelien@chez.com>
@@ -41,6 +43,7 @@ unset CDPATH
 unset GREP_OPTIONS
 
 declare -r makeapex_version='1.0.0-apex'
+# shellcheck disable=SC2155
 declare -r MAKEAPEX_DIR="$(dirname "$(readlink -f "$0")")"
 declare -r confdir="$MAKEAPEX_DIR"
 declare -r BUILDSCRIPT='APEXBUILD'
@@ -138,7 +141,7 @@ clean_up() {
 		msg "$(gettext "Cleaning up...")"
 		rm -rf "$pkgdirbase" "$srcdir"
 		if [[ -n $pkgbase ]]; then
-			local fullver=$(get_full_version)
+			local fullver; fullver=$(get_full_version)
 			# Can't do this unless the BUILDSCRIPT has been sourced.
 			if (( PKGVERFUNC )); then
 				rm -f "${pkgbase}-${fullver}-${CARCH}-pkgver.log"*
@@ -158,13 +161,16 @@ clean_up() {
 			if (( PKGFUNC )); then
 				rm -f "${pkgbase}-${fullver}-${CARCH}-package.log"*
 			elif (( SPLITPKG )); then
-				for pkg in ${pkgname[@]}; do
+				# shellcheck disable=SC2068
+				for pkg in "${pkgname[@]}"; do
 					rm -f "${pkgbase}-${fullver}-${CARCH}-package_${pkg}.log"*
 				done
 			fi
 
 			# clean up dangling symlinks to packages
-			for pkg in ${pkgname[@]}; do
+			# shellcheck disable=SC2068
+			for pkg in "${pkgname[@]}"; do
+				# shellcheck disable=SC2231
 				for file in ${pkg}-*-*-*{${PKGEXT},${SRCEXT}}; do
 					if [[ -h $file && ! -e $file ]]; then
 						rm -f "$file"
@@ -175,7 +181,7 @@ clean_up() {
 	fi
 
 	if ! remove_deps && (( EXIT_CODE == E_OK )); then
-	    exit $E_REMOVE_DEPS_FAILED
+	    exit "$E_REMOVE_DEPS_FAILED"
 	else
 	    exit $EXIT_CODE
 	fi
@@ -191,12 +197,13 @@ enter_fakeroot() {
 update_pkgver() {
 	msg "$(gettext "Starting %s()...")" "pkgver"
 	newpkgver=$(run_function_safe pkgver)
+	# shellcheck disable=SC2181
 	if (( $? != 0 )); then
 		error_function pkgver
 	fi
 	if ! check_pkgver "$newpkgver"; then
 		error "$(gettext "pkgver() generated an invalid version: %s")" "$newpkgver"
-		exit $E_APEXBUILD_ERROR
+		exit "$E_APEXBUILD_ERROR"
 	fi
 
 	if [[ -n $newpkgver && $newpkgver != "$pkgver" ]]; then
@@ -207,10 +214,10 @@ update_pkgver() {
 			if ! printf '%s\n' "${buildfile[@]}" > "$BUILDFILE"; then
 				error "$(gettext "Failed to update %s from %s to %s")" \
 						"pkgver" "$pkgver" "$newpkgver"
-				exit $E_APEXBUILD_ERROR
+				exit "$E_APEXBUILD_ERROR"
 			fi
 			source_safe "$BUILDFILE"
-			local fullver=$(get_full_version)
+			local fullver; fullver=$(get_full_version)
 			msg "$(gettext "Updated version: %s")" "$pkgbase $fullver"
 		else
 			warning "$(gettext "%s is not writeable -- pkgver will not be updated")" \
@@ -223,7 +230,7 @@ update_pkgver() {
 missing_source_file() {
 	error "$(gettext "Unable to find source file %s.")" "$(get_filename "$1")"
 	plainerr "$(gettext "Aborting...")"
-	exit $E_MISSING_FILE
+	exit "$E_MISSING_FILE"
 }
 
 run_pacman() {
@@ -233,6 +240,7 @@ run_pacman() {
 	else
 		cmd=("$PACMAN_PATH" "${PACMAN_OPTS[@]}" "$@")
 		cmdescape="$(printf '%q ' "${cmd[@]}")"
+		# shellcheck disable=SC2153
 		if (( ${#PACMAN_AUTH[@]} )); then
 			if in_array '%c' "${PACMAN_AUTH[@]}"; then
 				cmd=("${PACMAN_AUTH[@]/\%c/$cmdescape}")
@@ -244,7 +252,7 @@ run_pacman() {
 		else
 			cmd=(su root -c "$cmdescape")
 		fi
-		local lockfile="$(pacman-conf DBPath)/db.lck"
+		local lockfile; lockfile="$(pacman-conf DBPath)/db.lck"
 		while [[ -f $lockfile ]]; do
 			local timer=0
 			msg "$(gettext "Pacman is currently in use, please wait...")"
@@ -361,7 +369,7 @@ handle_deps() {
 
 	# we might need the new system environment
 	# save our shell options and turn off extglob
-	local shellopts=$(shopt -p extglob)
+	local shellopts; shellopts=$(shopt -p extglob)
 	shopt -u extglob
 	source /etc/profile &>/dev/null
 	eval "$shellopts"
@@ -380,7 +388,9 @@ resolve_deps() {
 	# deplist cannot be declared like this: local deplist=$(foo)
 	# Otherwise, the return value will depend on the assignment.
 	local deplist
-	deplist=($(check_deps "$@")) || exit $E_INSTALL_DEPS_FAILED
+	# shellcheck disable=SC2207
+	deplist=($(check_deps "$@")) || exit "$E_INSTALL_DEPS_FAILED"
+	# shellcheck disable=SC2128
 	[[ -z $deplist ]] && return $R_DEPS_SATISFIED
 
 	if handle_deps "${deplist[@]}"; then
@@ -391,7 +401,8 @@ resolve_deps() {
 
 	msg "$(gettext "Missing dependencies:")"
 	local dep
-	for dep in ${deplist[@]}; do
+	# shellcheck disable=SC2068
+	for dep in "${deplist[@]}"; do
 		msg2 "$dep"
 	done
 
@@ -403,24 +414,28 @@ remove_deps() {
 
 	# check for packages removed during dependency install (e.g. due to conflicts)
 	# removing all installed packages is risky in this case
+	# shellcheck disable=SC2143
 	if [[ -n $(grep -xvFf <(printf '%s\n' "${current_pkglist[@]}") \
 			<(printf '%s\n' "${original_pkglist[@]}")) ]]; then
 		warning "$(gettext "Failed to remove installed dependencies.")"
-		return $E_REMOVE_DEPS_FAILED
+		return "$E_REMOVE_DEPS_FAILED"
 	fi
 
 	local deplist
+	# shellcheck disable=SC2207
 	deplist=($(grep -xvFf <(printf "%s\n" "${original_pkglist[@]}") \
 			<(printf "%s\n" "${current_pkglist[@]}")))
+	# shellcheck disable=SC2128
 	if [[ -z $deplist ]]; then
 		return 0
 	fi
 
 	msg "Removing installed dependencies..."
 	# exit cleanly on failure to remove deps as package has been built successfully
-	if ! run_pacman -Rnu ${deplist[@]}; then
+	# shellcheck disable=SC2068
+	if ! run_pacman -Rnu "${deplist[@]}"; then
 		warning "$(gettext "Failed to remove installed dependencies.")"
-		return $E_REMOVE_DEPS_FAILED
+		return "$E_REMOVE_DEPS_FAILED"
 	fi
 }
 
@@ -430,7 +445,7 @@ error_function() {
 		error "$(gettext "A failure occurred in %s().")" "$1"
 		plainerr "$(gettext "Aborting...")"
 	fi
-	exit $E_USER_FUNCTION_FAILED
+	exit "$E_USER_FUNCTION_FAILED"
 }
 
 merge_arch_attrs() {
@@ -439,6 +454,7 @@ merge_arch_attrs() {
 		makedepends checkdepends)
 
 	for attr in "${supported_attrs[@]}"; do
+		# shellcheck disable=SC1087
 		eval "$attr+=(\"\${${attr}_$CARCH[@]}\")"
 	done
 
@@ -462,6 +478,7 @@ run_function_safe() {
 	shopt -o -s errexit errtrace
 
 	restoretrap=$(trap -p ERR)
+	# shellcheck disable=SC2064
 	trap "error_function '$1'" ERR
 
 	run_function "$1" "$2"
@@ -485,12 +502,13 @@ run_function() {
 
 	local ret=0
 	if (( LOGGING )); then
-		local fullver=$(get_full_version)
+		local fullver; fullver=$(get_full_version)
 		local BUILDLOG="$LOGDEST/${pkgbase}-${fullver}-${CARCH}-$pkgfunc.log"
 		if [[ -f $BUILDLOG ]]; then
 			local i=1
 			while true; do
 				if [[ -f $BUILDLOG.$i ]]; then
+					# shellcheck disable=SC2004
 					i=$(($i +1))
 				else
 					break
@@ -503,6 +521,7 @@ run_function() {
 		logpipe=$(mktemp -u "$LOGDEST/logpipe.XXXXXXXX")
 		mkfifo "$logpipe"
 		tee "$BUILDLOG" < "$logpipe" &
+		# shellcheck disable=SC2128
 		local teepid=$!
 
 		$pkgfunc &>"$logpipe"
@@ -541,14 +560,14 @@ write_kv_pair() {
 	for val in "$@"; do
 		if [[ $val = *$'\n'* ]]; then
 			error "$(gettext "Invalid value for %s: %s")" "$key" "$val"
-			exit $E_APEXBUILD_ERROR
+			exit "$E_APEXBUILD_ERROR"
 		fi
 		printf "%s = %s\n" "$key" "$val"
 	done
 }
 
 write_pkginfo() {
-	local size=$(dirsize)
+	local size; size=$(dirsize)
 
 	merge_arch_attrs
 	generate_autodeps
@@ -560,7 +579,7 @@ write_pkginfo() {
 	write_kv_pair "pkgbase" "$pkgbase"
 	write_kv_pair "xdata" "pkgtype=$pkgtype" "${xdata[@]}"
 
-	local fullver=$(get_full_version)
+	local fullver; fullver=$(get_full_version)
 	write_kv_pair "pkgver" "$fullver"
 
 	# TODO: all fields should have this treatment
@@ -568,6 +587,7 @@ write_pkginfo() {
 	spd=("${spd[@]#[[:space:]]}")
 	spd=("${spd[@]%[[:space:]]}")
 
+	# shellcheck disable=SC2128
 	write_kv_pair "pkgdesc" "$spd"
 	write_kv_pair "url" "$url"
 	write_kv_pair "builddate" "$SOURCE_DATE_EPOCH"
@@ -593,14 +613,14 @@ write_buildinfo() {
 	write_kv_pair "pkgname" "$pkgname"
 	write_kv_pair "pkgbase" "$pkgbase"
 
-	local fullver=$(get_full_version)
+	local fullver; fullver=$(get_full_version)
 	write_kv_pair "pkgver" "$fullver"
 
 	write_kv_pair "pkgarch" "$pkgarch"
 
-	local sum="$(sha256sum "${BUILDFILE}")"
+	local sum; sum="$(sha256sum "${BUILDFILE}")"
 	sum=${sum%% *}
-	write_kv_pair "apexbuild_sha256sum" $sum
+	write_kv_pair "apexbuild_sha256sum" "$sum"
 
 	write_kv_pair "packager" "${PACKAGER}"
 	write_kv_pair "builddate" "${SOURCE_DATE_EPOCH}"
@@ -609,8 +629,10 @@ write_buildinfo() {
 	write_kv_pair "buildtool" "${BUILDTOOL:-makeapex}"
 	write_kv_pair "buildtoolver" "${BUILDTOOLVER:-$makeapex_version}"
 	write_kv_pair "buildenv" "${BUILDENV[@]}"
+	# shellcheck disable=SC2153
 	write_kv_pair "options" "${OPTIONS[@]}"
 
+	# shellcheck disable=SC2207
 	local pkginfos_parsed=($(LC_ALL=C run_pacman -Qi | awk -F': ' '\
 		/^Name .*/ {printf "%s", $2} \
 		/^Version .*/ {printf "-%s", $2} \
@@ -641,7 +663,7 @@ create_package() {
 	if [[ ! -d $pkgdir ]]; then
 		error "$(gettext "Missing %s directory.")" "\$pkgdir/"
 		plainerr "$(gettext "Aborting...")"
-		exit $E_MISSING_PKGDIR
+		exit "$E_MISSING_PKGDIR"
 	fi
 
 	cd_safe "$startdir"
@@ -652,7 +674,7 @@ create_package() {
 		full_pkgname="${org}.${pkgname}"
 	fi
 
-	local fullver=$(get_full_version)
+	local fullver; fullver=$(get_full_version)
 	local apex_file="$PKGDEST/${full_pkgname}-${fullver}${PKGEXT:-.apex}"
 	
 	[[ -f $apex_file ]] && rm -f "$apex_file"
@@ -712,13 +734,13 @@ EOF
 	local ANDROID_SDK=${ANDROID_HOME:-"$HOME/Android/Sdk"}
 	local api=${api_level:-32}	
 
-	local ANDROID_JAR="$(find $ANDROID_SDK/platforms	-iname "android-${api}*" -print -quit 2>/dev/null)/android.jar"
+	local ANDROID_JAR; ANDROID_JAR="$(find "$ANDROID_SDK"/platforms	-iname "android-${api}*" -print -quit 2>/dev/null)/android.jar"
 	if [ -z "$ANDROID_JAR" ]; then
 		error "android.jar not found in $ANDROID_SDK/platforms/android-${api}*/android.jar"
 		exit 1
 	fi
 	
-	local BUILD_TOOLS_DIR=$(ls -d $$ANDROID_SDK/build-tools/* 2>/dev/null | tail -n 1)
+	local BUILD_TOOLS_DIR; BUILD_TOOLS_DIR=$(find "$ANDROID_SDK/build-tools" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort | tail -n 1)
 	if [[ -n $BUILD_TOOLS_DIR ]]; then
 		export PATH="$BUILD_TOOLS_DIR:$PATH"
 	fi
@@ -743,6 +765,7 @@ EOF
 
 	# 2. Key Management
 	msg2 "$(gettext "Preparing keys...")"
+	# shellcheck disable=SC2199
 	if [[ -n ${signing_keys[@]} ]]; then
 		cp "${signing_keys[0]}" container.pk8
 		cp "${signing_keys[1]}" container.x509.pem
@@ -762,7 +785,7 @@ EOF
 	rm -f apex_payload.img
 	
 	if [[ "${payload_fs:-erofs}" == "ext4" ]]; then
-		local size_kb=$(du -sk "$pkgdir" | awk '{print $1}')
+		local size_kb; size_kb=$(du -sk "$pkgdir" | awk '{print $1}')
 		local size_bytes=$(( (size_kb + 2048) * 1024 ))
 		local part_size=$(( size_bytes + 1048576 ))
 		mke2fs -F -O ^has_journal -b 4096 -m 0 -t ext4 -d "$pkgdir"/ apex_payload.img $((size_bytes / 1024))K >/dev/null 2>&1
@@ -775,7 +798,7 @@ EOF
 			--key payload_key.pem
 	else
 		mkfs.erofs -z lz4hc apex_payload.img "$pkgdir"/ >/dev/null 2>&1
-		local img_size=$(stat -c%s apex_payload.img)
+		local img_size; img_size=$(stat -c%s apex_payload.img)
 		local part_size=$((img_size + 1048576))
 		
 		avbtool add_hashtree_footer \
@@ -824,7 +847,9 @@ create_debug_package() {
 	unset groups depends optdepends provides conflicts replaces backup install changelog
 
 	local pkg
-	for pkg in ${pkgname[@]}; do
+	# shellcheck disable=SC2068
+	for pkg in "${pkgname[@]}"; do
+		# shellcheck disable=SC2053
 		if [[ $pkg != $pkgbase ]]; then
 			provides+=("$pkg-@DEBUGSUFFIX@")
 		fi
@@ -840,8 +865,8 @@ create_debug_package() {
 create_srcpackage() {
 	local ret=0
 	msg "$(gettext "Creating source package...")"
-	local srclinks="$(mktemp -d "$startdir"/srclinks.XXXXXXXXX)"
-	mkdir "${srclinks}"/${pkgbase}
+	local srclinks; srclinks="$(mktemp -d "$startdir"/srclinks.XXXXXXXXX)"
+	mkdir "${srclinks}"/"${pkgbase}"
 
 	pkgtype=src
 
@@ -869,6 +894,7 @@ create_srcpackage() {
 
 	# set pkgname the same way we do for running package(), this way we get
 	# the right value in extract_function_variable
+	# shellcheck disable=SC2206
 	local pkgname_backup=(${pkgname[@]})
 	local i pkgname
 	for i in 'changelog' 'install'; do
@@ -888,11 +914,13 @@ create_srcpackage() {
 			fi
 		done
 	done
+	# shellcheck disable=SC2206
 	pkgname=(${pkgname_backup[@]})
 
 	# add a copy of source PGP signing public keys if available in keys/pgp/<fingerprint>.asc
 	local key
-	for key in ${validpgpkeys[@]}; do
+	# shellcheck disable=SC2068
+	for key in "${validpgpkeys[@]}"; do
 		if [[ -f keys/pgp/$key.asc ]]; then
 			mkdir -p "${srclinks}/${pkgbase}/keys/pgp/"
 			ln -s "${startdir}/keys/pgp/$key.asc" "${srclinks}/${pkgbase}/keys/pgp/"
@@ -900,7 +928,7 @@ create_srcpackage() {
 	done
 
 
-	local fullver=$(get_full_version)
+	local fullver; fullver=$(get_full_version)
 	local pkg_file="$SRCPKGDEST/${pkgbase}-${fullver}${SRCEXT}"
 
 	# tar it up
@@ -916,7 +944,7 @@ create_srcpackage() {
 
 	if (( ret )); then
 		error "$(gettext "Failed to create source package file.")"
-		exit $E_PACKAGE_FAILED
+		exit "$E_PACKAGE_FAILED"
 	fi
 
 	cd_safe "${startdir}"
@@ -930,6 +958,7 @@ install_package() {
 	RMDEPS=0
 
 	if (( ! SPLITPKG )); then
+		# shellcheck disable=SC2128
 		msg "$(gettext "Installing package %s with %s...")" "$pkgname" "$PACMAN -U"
 	else
 		msg "$(gettext "Installing %s package group with %s...")" "$pkgbase" "$PACMAN -U"
@@ -939,10 +968,11 @@ install_package() {
 	(( ASDEPS )) && pkglist+=('--asdeps')
 	(( NEEDED )) && pkglist+=('--needed')
 
-	for pkg in ${pkgname[@]}; do
+	# shellcheck disable=SC2068
+	for pkg in "${pkgname[@]}"; do
 		fullver=$(get_full_version)
 		# Split package not relevant for current CARCH
-		if ! pkgarch=$(get_pkg_arch $pkg); then
+		if ! pkgarch=$(get_pkg_arch "$pkg"); then
 			continue
 		fi
 		local full_pkg="$pkg"
@@ -958,7 +988,7 @@ install_package() {
 
 	if ! run_pacman -U "${pkglist[@]}"; then
 		warning "$(gettext "Failed to install built package(s).")"
-		return $E_INSTALL_FAILED
+		return "$E_INSTALL_FAILED"
 	fi
 }
 
@@ -967,8 +997,10 @@ check_build_status() {
 	if (( ! SPLITPKG )); then
 		fullver=$(get_full_version)
 		pkgarch=$(get_pkg_arch)
+		# shellcheck disable=SC2128
 		local full_pkgname="$pkgname"
 		if [[ -n "$org" ]]; then
+			# shellcheck disable=SC2128
 			full_pkgname="${org}.${pkgname}"
 		fi
 		if [[ -f $PKGDEST/${full_pkgname}-${fullver}-${pkgarch}${PKGEXT} ]] \
@@ -979,16 +1011,17 @@ check_build_status() {
 				exit $?
 			else
 				error "$(gettext "A package has already been built. (use %s to overwrite)")" "-f"
-				exit $E_ALREADY_BUILT
+				exit "$E_ALREADY_BUILT"
 			fi
 		fi
 	else
 		allpkgbuilt=1
 		somepkgbuilt=0
-		for pkg in ${pkgname[@]}; do
+		# shellcheck disable=SC2068
+		for pkg in "${pkgname[@]}"; do
 			fullver=$(get_full_version)
 			# Split package not relevant for current CARCH
-			if ! pkgarch=$(get_pkg_arch $pkg); then
+			if ! pkgarch=$(get_pkg_arch "$pkg"); then
 				continue
 			fi
 			local full_pkg="$pkg"
@@ -1009,12 +1042,12 @@ check_build_status() {
 					exit $?
 				else
 					error "$(gettext "The package group has already been built. (use %s to overwrite)")" "-f"
-					exit $E_ALREADY_BUILT
+					exit "$E_ALREADY_BUILT"
 				fi
 			fi
 			if (( somepkgbuilt && ! PKGVERFUNC )); then
 				error "$(gettext "Part of the package group has already been built. (use %s to overwrite)")" "-f"
-				exit $E_ALREADY_BUILT
+				exit "$E_ALREADY_BUILT"
 			fi
 		fi
 	fi
@@ -1022,20 +1055,24 @@ check_build_status() {
 
 backup_package_variables() {
 	local var
-	for var in ${apexbuild_schema_package_overrides[@]}; do
+	# shellcheck disable=SC2068
+	for var in "${apexbuild_schema_package_overrides[@]}"; do
 		local indirect="${var}_backup"
+		# shellcheck disable=SC1087
 		eval "${indirect}=(\"\${$var[@]}\")"
 	done
 }
 
 restore_package_variables() {
 	local var
-	for var in ${apexbuild_schema_package_overrides[@]}; do
+	# shellcheck disable=SC2068
+	for var in "${apexbuild_schema_package_overrides[@]}"; do
 		local indirect="${var}_backup"
 		if [[ -n ${!indirect} ]]; then
+			# shellcheck disable=SC1087
 			eval "${var}=(\"\${$indirect[@]}\")"
 		else
-			unset ${var}
+			unset "${var}"
 		fi
 	done
 }
@@ -1044,14 +1081,15 @@ run_single_packaging() {
 	if (( SPLITPKG )); then
 		pkgdir="$pkgdirbase/$pkgbase"
 	else
+		# shellcheck disable=SC2128
 		pkgdir="$pkgdirbase/$pkgname"
 	fi
 	mkdir -p "$pkgdir"
 	if [[ -n $1 ]] || (( PKGFUNC )); then
-		run_package $1
+		run_package "$1"
 	fi
 	tidy_install
-	lint_package || exit $E_PACKAGE_FAILED
+	lint_package || exit "$E_PACKAGE_FAILED"
 	create_package
 }
 
@@ -1059,14 +1097,16 @@ run_split_packaging() {
 	local pkgname_backup=("${pkgname[@]}")
 	# We might run this function when we only have package_pkgname
 	# and we don't want that marked as a split package
+	# shellcheck disable=SC2209
 	(( ${#pkgname[@]} > 1 )) && pkgtype=split
 	backup_package_variables
-	for pkgname in ${pkgname_backup[@]}; do
+	# shellcheck disable=SC2068
+	for pkgname in "${pkgname_backup[@]}"; do
 		# Split package not relevant for current CARCH
-		if ! pkgarch=$(get_pkg_arch $pkgname); then
+		if ! pkgarch=$(get_pkg_arch "$pkgname"); then
 			continue
 		fi
-		run_single_packaging $pkgname
+		run_single_packaging "$pkgname"
 		restore_package_variables
 	done
 	pkgname=("${pkgname_backup[@]}")
@@ -1075,54 +1115,98 @@ run_split_packaging() {
 usage() {
 	printf "makeapex (pacman) %s\n" "$makeapex_version"
 	echo
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "Make packages compatible for use with pacman")\n"
 	echo
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "Usage: %s [options]")\n" "$0"
 	echo
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "Options:")\n"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  -A, --ignorearch Ignore incomplete %s field in %s")\n" "arch" "$BUILDSCRIPT"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  -c, --clean      Clean up work files after build")\n"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  -C, --cleanbuild Remove %s dir before building the package")\n" "\$srcdir/"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  -d, --nodeps     Skip all dependency checks")\n"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  -D, --dir <dir>  Change to directory <dir> before processing APEXBUILD")\n"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  -e, --noextract  Do not extract source files (use existing %s dir)")\n" "\$srcdir/"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  -f, --force      Overwrite existing package")\n"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  -g, --geninteg   Generate integrity checks for source files")\n"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  -h, --help       Show this help message and exit")\n"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  -i, --install    Install package after successful build")\n"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  -L, --log        Log package build process")\n"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  -m, --nocolor    Disable colorized output messages")\n"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  -o, --nobuild    Download and extract files only")\n"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  -p <file>        Use an alternate build script (instead of '%s')")\n" "$BUILDSCRIPT"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  -r, --rmdeps     Remove installed dependencies after a successful build")\n"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  -R, --repackage  Repackage contents of the package without rebuilding")\n"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  -s, --syncdeps   Install missing dependencies with %s")\n" "pacman"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  -S, --source     Generate a source-only tarball without downloaded sources")\n"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  -V, --version    Show version information and exit")\n"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  --allsource      Generate a source-only tarball including downloaded sources")\n"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  --check          Run the %s function in the %s")\n" "check()" "$BUILDSCRIPT"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  --config <file>  Use an alternate config file (instead of '%s')")\n" "$confdir/makeapex.conf"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  --holdver        Do not update VCS sources")\n"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  --key <key>      Specify a key to use for %s signing instead of the default")\n" "gpg"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  --noarchive      Do not create package archive")\n"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  --nocheck        Do not run the %s function in the %s")\n" "check()" "$BUILDSCRIPT"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  --noprepare      Do not run the %s function in the %s")\n" "prepare()" "$BUILDSCRIPT"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  --nosign         Do not create a signature for the package")\n"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  --packagelist    Only list package filepaths that would be produced")\n"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  --printsrcinfo   Print the generated SRCINFO and exit")\n"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  --sign           Sign the resulting package with %s")\n" "gpg"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  --skipchecksums  Do not verify checksums of the source files")\n"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  --skipinteg      Do not perform any verification checks on source files")\n"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  --skippgpcheck   Do not verify source files with PGP signatures")\n"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  --verifysource   Download source files (if needed) and perform integrity checks")\n"
 	echo
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "These options can be passed to %s:")\n" "pacman"
 	echo
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  --asdeps         Install packages as non-explicitly installed")\n"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  --needed         Do not reinstall the targets that are already up to date")\n"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  --noconfirm      Do not ask for confirmation when resolving dependencies")\n"
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "  --noprogressbar  Do not show a progress bar when downloading files")\n"
 	echo
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "If %s is not specified, %s will look for '%s'")\n" "-p" "makeapex" "$BUILDSCRIPT"
 	echo
 }
@@ -1132,6 +1216,7 @@ version() {
 	printf -- "Copyright (c) 2006-2025 Pacman Development Team <pacman-dev@lists.archlinux.org>.\n"
 	printf -- "Copyright (C) 2002-2006 Judd Vinet <jvinet@zeroflux.org>.\n"
 	printf '\n'
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "\
 This is free software; see the source for copying conditions.\n\
 There is NO WARRANTY, to the extent permitted by law.\n")"
@@ -1163,7 +1248,7 @@ OPT_LONG=('allsource' 'check' 'clean' 'cleanbuild' 'config:' 'dir:' 'force' 'gen
 OPT_LONG+=('asdeps' 'noconfirm' 'needed' 'noprogressbar')
 
 if ! parseopts "$OPT_SHORT" "${OPT_LONG[@]}" -- "$@"; then
-	exit $E_INVALID_OPTION
+	exit "$E_INVALID_OPTION"
 fi
 set -- "${OPTRET[@]}"
 unset OPT_SHORT OPT_LONG OPTRET
@@ -1214,8 +1299,8 @@ while true; do
 		-S|--source)      BUILDPKG=0 SOURCEONLY=1 ;;
 		--verifysource)   BUILDPKG=0 VERIFYSOURCE=1 ;;
 
-		-h|--help)        usage; exit $E_OK ;;
-		-V|--version)     version; exit $E_OK ;;
+		-h|--help)        usage; exit "$E_OK" ;;
+		-V|--version)     version; exit "$E_OK" ;;
 
 		--)               shift; break ;;
 	esac
@@ -1236,11 +1321,15 @@ if (( ! INFAKEROOT )) &&  [[ -n $CHDIR ]]; then
 	cd_safe "$CHDIR"
 fi
 
+# shellcheck disable=SC2155
 declare -r startdir="$(pwd -P)"
 
 # setup signal traps
 trap 'clean_up' 0
 for signal in TERM HUP QUIT; do
+	# shellcheck disable=SC2064
+	# shellcheck disable=SC2064
+	# shellcheck disable=SC2064
 	trap "trap_exit $signal \"$(gettext "%s signal caught. Exiting...")\" \"$signal\"" "$signal"
 done
 trap 'trap_exit INT "$(gettext "Aborted by user! Exiting...")"' INT
@@ -1263,7 +1352,7 @@ PACKAGER=${PACKAGER:-"Unknown Packager"}
 # set pacman command if not already defined
 PACMAN=${PACMAN:-pacman}
 # save full path to command as PATH may change when sourcing /etc/profile
-PACMAN_PATH=$(type -P $PACMAN)
+PACMAN_PATH=$(type -P "$PACMAN")
 
 # check if messages are to be printed using color
 if [[ -t 2 && $USE_COLOR != "n" ]] && check_buildenv "color" "y"; then
@@ -1274,29 +1363,29 @@ fi
 
 
 # check makeapex.conf for some basic requirements
-lint_config || exit $E_CONFIG_ERROR
+lint_config || exit "$E_CONFIG_ERROR"
 
 
 # check that all settings directories are user-writable
 if ! ensure_writable_dir "BUILDDIR" "$BUILDDIR"; then
 	plainerr "$(gettext "Aborting...")"
-	exit $E_FS_PERMISSIONS
+	exit "$E_FS_PERMISSIONS"
 fi
 
 if (( ! (NOBUILD || GENINTEG) )) && ! ensure_writable_dir "PKGDEST" "$PKGDEST"; then
 	plainerr "$(gettext "Aborting...")"
-	exit $E_FS_PERMISSIONS
+	exit "$E_FS_PERMISSIONS"
 fi
 
 if ! ensure_writable_dir "SRCDEST" "$SRCDEST" ; then
 	plainerr "$(gettext "Aborting...")"
-	exit $E_FS_PERMISSIONS
+	exit "$E_FS_PERMISSIONS"
 fi
 
 if (( SOURCEONLY )); then
 	if ! ensure_writable_dir "SRCPKGDEST" "$SRCPKGDEST"; then
 		plainerr "$(gettext "Aborting...")"
-		exit $E_FS_PERMISSIONS
+		exit "$E_FS_PERMISSIONS"
 	fi
 
 	# If we're only making a source tarball, then we need to ignore architecture-
@@ -1306,19 +1395,19 @@ fi
 
 if (( LOGGING )) && ! ensure_writable_dir "LOGDEST" "$LOGDEST"; then
 	plainerr "$(gettext "Aborting...")"
-	exit $E_FS_PERMISSIONS
+	exit "$E_FS_PERMISSIONS"
 fi
 
 if (( ! INFAKEROOT )); then
 	if (( EUID == 0 )); then
 		error "$(gettext "Running %s as root is not allowed as it can cause permanent,\n\
 catastrophic damage to your system.")" "makeapex"
-		exit $E_ROOT
+		exit "$E_ROOT"
 	fi
 else
 	if [[ -z $FAKEROOTKEY ]]; then
 		error "$(gettext "Do not use the %s option. This option is only for internal use by %s.")" "'-F'" "makeapex"
-		exit $E_INVALID_OPTION
+		exit "$E_INVALID_OPTION"
 	fi
 fi
 
@@ -1333,17 +1422,17 @@ unset "${!sha256sums_@}" "${!sha384sums_@}" "${!sha512sums_@}" "${!b2sums_@}"
 BUILDFILE=${BUILDFILE:-$BUILDSCRIPT}
 if [[ ! -f $BUILDFILE ]]; then
 	error "$(gettext "%s does not exist.")" "$BUILDFILE"
-	exit $E_APEXBUILD_ERROR
+	exit "$E_APEXBUILD_ERROR"
 
 else
 	if [[ $(<"$BUILDFILE") = *$'\r'* ]]; then
 		error "$(gettext "%s contains %s characters and cannot be sourced.")" "$BUILDFILE" "CRLF"
-		exit $E_APEXBUILD_ERROR
+		exit "$E_APEXBUILD_ERROR"
 	fi
 
 	if [[ ! $BUILDFILE -ef $PWD/${BUILDFILE##*/} ]]; then
 		error "$(gettext "%s must be in the current working directory.")" "$BUILDFILE"
-		exit $E_APEXBUILD_ERROR
+		exit "$E_APEXBUILD_ERROR"
 	fi
 
 	if [[ ${BUILDFILE:0:1} != "/" ]]; then
@@ -1356,7 +1445,7 @@ pkgbase=${pkgbase:-${pkgname[0]}}
 
 # check the APEXBUILD for some basic requirements
 if (( MAKEAPEX_LINT_APEXBUILD != 0 )); then
-	lint_apexbuild || exit $E_APEXBUILD_ERROR
+	lint_apexbuild || exit "$E_APEXBUILD_ERROR"
 fi
 
 if (( !SOURCEONLY && !PRINTSRCINFO )); then
@@ -1383,14 +1472,15 @@ if (( GENINTEG )); then
 	cd_safe "$srcdir"
 	download_sources allarch >&2
 	generate_checksums
-	exit $E_OK
+	exit "$E_OK"
 fi
 
 if have_function pkgver; then
 	PKGVERFUNC=1
 fi
 
-if (( ${#pkgname[@]} > 1 )) || have_function package_${pkgname}; then
+# shellcheck disable=SC2128
+if (( ${#pkgname[@]} > 1 )) || have_function package_"${pkgname}"; then
 	SPLITPKG=1
 fi
 
@@ -1422,12 +1512,12 @@ fi
 
 if (( PACKAGELIST )); then
 	print_all_package_names
-	exit $E_OK
+	exit "$E_OK"
 fi
 
 if (( PRINTSRCINFO )); then
 	write_srcinfo_content
-	exit $E_OK
+	exit "$E_OK"
 fi
 
 if (( ! PKGVERFUNC )); then
@@ -1439,10 +1529,10 @@ if (( INFAKEROOT )); then
 	if (( SOURCEONLY )); then
 		create_srcpackage
 		msg "$(gettext "Leaving %s environment.")" "fakeroot"
-		exit $E_OK
+		exit "$E_OK"
 	fi
 
-	prepare_buildenv || exit $E_INVALID_OPTION
+	prepare_buildenv || exit "$E_INVALID_OPTION"
 
 	chmod 755 "$pkgdirbase"
 	if (( ! SPLITPKG )); then
@@ -1454,11 +1544,11 @@ if (( INFAKEROOT )); then
 	create_debug_package
 
 	msg "$(gettext "Leaving %s environment.")" "fakeroot"
-	exit $E_OK
+	exit "$E_OK"
 fi
 
 # check we have the software required to process the APEXBUILD
-check_software || exit $E_MISSING_MAKEAPEX_DEPS
+check_software || exit "$E_MISSING_MAKEAPEX_DEPS"
 
 # check if gpg signature is to be created and if signing key is valid
 if { [[ -z $SIGNPKG ]] && check_buildenv "sign" "y"; } || [[ $SIGNPKG == 'y' ]]; then
@@ -1469,7 +1559,7 @@ if { [[ -z $SIGNPKG ]] && check_buildenv "sign" "y"; } || [[ $SIGNPKG == 'y' ]];
 		else
 			error "$(gettext "There is no key in your keyring.")"
 		fi
-		exit $E_PRETTY_BAD_PRIVACY
+		exit "$E_PRETTY_BAD_PRIVACY"
 	fi
 fi
 
@@ -1480,7 +1570,7 @@ if (( SOURCEONLY )); then
 	if [[ -f $SRCPKGDEST/${pkgbase}-${basever}${SRCEXT} ]] \
 			&& (( ! FORCE )); then
 		error "$(gettext "A source package has already been built. (use %s to overwrite)")" "-f"
-		exit $E_ALREADY_BUILT
+		exit "$E_ALREADY_BUILT"
 	fi
 
 	# Get back to our src directory so we can begin with sources.
@@ -1504,7 +1594,7 @@ if (( SOURCEONLY )); then
 	fi
 
 	msg "$(gettext "Source package created: %s")" "$pkgbase ($(date +%c))"
-	exit $E_OK
+	exit "$E_OK"
 fi
 
 if (( NODEPS || ( VERIFYSOURCE && !DEP_BIN ) )); then
@@ -1513,14 +1603,17 @@ if (( NODEPS || ( VERIFYSOURCE && !DEP_BIN ) )); then
 	fi
 else
 	if (( RMDEPS && ! INSTALL )); then
+		# shellcheck disable=SC2207
 		original_pkglist=($(run_pacman -Qq))    # required by remove_dep
 	fi
 	deperr=0
 
 	msg "$(gettext "Checking runtime dependencies...")"
-	resolve_deps ${depends[@]} || deperr=1
+	# shellcheck disable=SC2068
+	resolve_deps "${depends[@]}" || deperr=1
 
 	if (( RMDEPS && INSTALL )); then
+		# shellcheck disable=SC2207
 		original_pkglist=($(run_pacman -Qq))    # required by remove_dep
 	fi
 
@@ -1534,12 +1627,13 @@ else
 	fi
 
 	if (( RMDEPS )); then
+		# shellcheck disable=SC2207
 		current_pkglist=($(run_pacman -Qq))    # required by remove_deps
 	fi
 
 	if (( deperr )); then
 		error "$(gettext "Could not resolve all dependencies.")"
-		exit $E_INSTALL_DEPS_FAILED
+		exit "$E_INSTALL_DEPS_FAILED"
 	fi
 fi
 
@@ -1553,7 +1647,7 @@ if (( !REPKG )); then
 	else
 		download_sources
 		check_source_integrity
-		(( VERIFYSOURCE )) && exit $E_OK
+		(( VERIFYSOURCE )) && exit "$E_OK"
 
 		if (( CLEANBUILD )); then
 			msg "$(gettext "Removing existing %s directory...")" "\$srcdir/"
@@ -1570,7 +1664,7 @@ if (( !REPKG )); then
 		if (( REPRODUCIBLE )); then
 			# We have activated reproducible builds, so unify source times before
 			# building
-			find "$srcdir" -exec touch -h -d @$SOURCE_DATE_EPOCH {} +
+			find "$srcdir" -exec touch -h -d @"$SOURCE_DATE_EPOCH" {} +
 		fi
 	fi
 
@@ -1583,7 +1677,7 @@ fi
 
 if (( NOBUILD )); then
 	msg "$(gettext "Sources are ready.")"
-	exit $E_OK
+	exit "$E_OK"
 else
 	# clean existing pkg directory
 	if [[ -d $pkgdirbase ]]; then
@@ -1594,7 +1688,7 @@ else
 	chmod a-srw "$pkgdirbase"
 	cd_safe "$startdir"
 
-	prepare_buildenv || exit $E_INVALID_OPTION
+	prepare_buildenv || exit "$E_INVALID_OPTION"
 
 	if (( ! REPKG )); then
 		(( BUILDFUNC )) && run_build
@@ -1604,15 +1698,15 @@ else
 
 	enter_fakeroot
 
-	create_package_signatures || exit $E_PRETTY_BAD_PRIVACY
+	create_package_signatures || exit "$E_PRETTY_BAD_PRIVACY"
 fi
 
 # if inhibiting archive creation, go no further
 if (( NOARCHIVE )); then
 	msg "$(gettext "Package directory is ready.")"
-	exit $E_OK
+	exit "$E_OK"
 fi
 
 msg "$(gettext "Finished making: %s")" "$pkgbase $basever ($(date +%c))"
 
-install_package && exit $E_OK || exit $E_INSTALL_FAILED
+install_package && exit "$E_OK" || exit "$E_INSTALL_FAILED"

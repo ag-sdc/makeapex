@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   verify_signature.sh - functions for checking PGP signatures
 #
@@ -41,8 +42,8 @@ check_pgpsigs() {
 	local netfile proto pubkey success status fingerprint trusted
 	local warnings=0
 	local errors=0
-	local statusfile_raw="$(mktemp)"
-	local statusfile=$(mktemp)
+	local statusfile_raw; statusfile_raw="$(mktemp)"
+	local statusfile; statusfile=$(mktemp)
 	local all_sources
 
 	case $1 in
@@ -56,8 +57,8 @@ check_pgpsigs() {
 	for netfile in "${all_sources[@]}"; do
 		proto="$(get_protocol "$netfile")"
 
-		if declare -f verify_${proto}_signature > /dev/null; then
-			verify_${proto}_signature "$netfile" "$statusfile" || continue
+		if declare -f verify_"${proto}"_signature > /dev/null; then
+			verify_"${proto}"_signature "$netfile" "$statusfile" || continue
 		else
 			verify_file_signature "$netfile" "$statusfile" || continue
 		fi
@@ -69,6 +70,7 @@ check_pgpsigs() {
 		fingerprint=
 		trusted=
 		parse_gpg_statusfile "$statusfile"
+		# shellcheck disable=SC2004
 		if (( ! $success )); then
 			printf '%s' "$(gettext "FAILED")" >&2
 			case "$status" in
@@ -76,6 +78,7 @@ check_pgpsigs() {
 					printf ' (%s)' "$(gettext "unknown public key") $pubkey" >&2
 					;;
 				"revokedkey")
+					# shellcheck disable=SC2059
 					printf " ($(gettext "public key %s has been revoked"))" "$pubkey" >&2
 					;;
 				"bad")
@@ -88,6 +91,7 @@ check_pgpsigs() {
 			errors=1
 		else
 			if (( ${#validpgpkeys[@]} == 0 && !trusted )); then
+				# shellcheck disable=SC2046
 				printf "%s ($(gettext "the public key %s is not trusted"))" $(gettext "FAILED") "$fingerprint" >&2
 				errors=1
 			elif (( ${#validpgpkeys[@]} > 0 )) && ! in_array "$fingerprint" "${validpgpkeys[@]}"; then
@@ -280,7 +284,7 @@ source_has_signatures() {
 		query=$(get_uri_query "$netfile")
 
 		if [[ ${netfile%%::*} = *.@(sig?(n)|asc) ]] || \
-				( declare -f verify_${proto}_signature > /dev/null && [[ $query = signed ]] ); then
+				( declare -f verify_"${proto}"_signature > /dev/null && [[ $query = signed ]] ); then
 			return 0
 		fi
 	done

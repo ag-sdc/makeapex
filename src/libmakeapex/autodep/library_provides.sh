@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   library_provides.sh - Automatically add a packages libraries to provides
 #
@@ -27,7 +28,8 @@ autodep_functions+=('library_provides')
 
 library_provides() {
 	if check_option "autodeps" "y"; then
-		for lib in ${LIB_DIRS[@]}; do
+		# shellcheck disable=SC2068
+		for lib in "${LIB_DIRS[@]}"; do
 			dir=${lib#*:}
 			prefix=${lib%%:*}
 
@@ -41,7 +43,7 @@ library_provides() {
 				# check we have a shared library
 				if LC_ALL=C readelf -h "$fn" 2>/dev/null | grep -q '.*Type:.*DYN (Shared object file).*'; then
 					# extract library soname
-					local sofile=$(LC_ALL=C readelf -d "$fn" 2>/dev/null | sed -n 's/.*Library soname: \[\(.*\)\].*/\1/p')
+					local sofile; sofile=$(LC_ALL=C readelf -d "$fn" 2>/dev/null | sed -n 's/.*Library soname: \[\(.*\)\].*/\1/p')
 
 					if [[ -z "$sofile" ]]; then
 						# the library has no soname

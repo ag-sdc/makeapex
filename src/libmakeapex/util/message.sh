@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   message.sh - functions for outputting messages in makeapex
 #
@@ -50,6 +51,7 @@ colorize() {
 plain() {
 	(( QUIET )) && return
 	local mesg=$1; shift
+	# shellcheck disable=SC2059
 	printf "${BOLD}    ${mesg}${ALL_OFF}\n" "$@"
 }
 
@@ -60,26 +62,31 @@ plainerr() {
 msg() {
 	(( QUIET )) && return
 	local mesg=$1; shift
+	# shellcheck disable=SC2059
 	printf "${GREEN}==>${ALL_OFF}${BOLD} ${mesg}${ALL_OFF}\n" "$@"
 }
 
 msg2() {
 	(( QUIET )) && return
 	local mesg=$1; shift
+	# shellcheck disable=SC2059
 	printf "${BLUE}  ->${ALL_OFF}${BOLD} ${mesg}${ALL_OFF}\n" "$@"
 }
 
 ask() {
 	local mesg=$1; shift
+	# shellcheck disable=SC2059
 	printf "${BLUE}::${ALL_OFF}${BOLD} ${mesg}${ALL_OFF}" "$@"
 }
 
 warning() {
 	local mesg=$1; shift
+	# shellcheck disable=SC2059
 	printf "${YELLOW}==> $(gettext "WARNING:")${ALL_OFF}${BOLD} ${mesg}${ALL_OFF}\n" "$@" >&2
 }
 
 error() {
 	local mesg=$1; shift
+	# shellcheck disable=SC2059
 	printf "${RED}==> $(gettext "ERROR:")${ALL_OFF}${BOLD} ${mesg}${ALL_OFF}\n" "$@" >&2
 }

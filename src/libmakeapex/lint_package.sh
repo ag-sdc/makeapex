@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   lint_package.sh - functions for checking for packaging errors
 #
@@ -41,7 +42,8 @@ lint_package() {
 	msg "$(gettext "Checking for packaging issues...")"
 
 	local ret=0
-	for func in ${lint_package_functions[@]}; do
+	# shellcheck disable=SC2068
+	for func in "${lint_package_functions[@]}"; do
 		$func || ret=1
 	done
 	return $ret

@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   bzr.sh - function for handling the download and "extraction" of Bazaar sources
 #
@@ -36,16 +37,16 @@ download_bzr() {
 
 	local netfile=$1
 
-	local url=$(get_url "$netfile")
+	local url; url=$(get_url "$netfile")
 	if [[ $url != bzr+ssh* ]]; then
 		url=${url#bzr+}
 	fi
 	url=${url%%#*}
 
-	local repo=$(get_filename "$netfile")
+	local repo; repo=$(get_filename "$netfile")
 	local displaylocation="$url"
 
-	local dir=$(get_filepath "$netfile")
+	local dir; dir=$(get_filepath "$netfile")
 	[[ -z "$dir" ]] && dir="$SRCDEST/$(get_filename "$netfile")"
 
 	if [[ ! -d "$dir" ]] || dir_is_empty "$dir" ; then
@@ -68,7 +69,7 @@ download_bzr() {
 extract_bzr() {
 	local netfile=$1
 
-	local repo=$(get_filename "$netfile")
+	local repo; repo=$(get_filename "$netfile")
 	local fragment=${netfile#*#}
 	if [[ $fragment = "$netfile" ]]; then
 		unset fragment
@@ -88,11 +89,11 @@ extract_bzr() {
 		esac
 	fi
 
-	local dir=$(get_filepath "$netfile")
+	local dir; dir=$(get_filepath "$netfile")
 	[[ -z "$dir" ]] && dir="$SRCDEST/$(get_filename "$netfile")"
 
 	msg2 "$(gettext "Creating working copy of %s %s repo...")" "${repo}" "bzr"
-	pushd "$srcdir" &>/dev/null
+	pushd "$srcdir" &>/dev/null || exit
 
 	if [[ -d "${dir##*/}" ]]; then
 		cd_safe "${dir##*/}"
@@ -107,7 +108,7 @@ extract_bzr() {
 		exit 1
 	fi
 
-	popd &>/dev/null
+	popd &>/dev/null || exit
 }
 
 calc_checksum_bzr() {

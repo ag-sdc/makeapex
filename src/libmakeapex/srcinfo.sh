@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   srcinfo.sh - functions for writing .SRCINFO files
 #
@@ -41,7 +42,7 @@ srcinfo_write_attr() {
 	local attrname=$1 attrvalues=("${@:2}")
 
 	# this function requires extglob - save current status to restore later
-	local shellopts=$(shopt -p extglob)
+	local shellopts; shellopts=$(shopt -p extglob)
 	shopt -s extglob
 
 	# normalize whitespace, strip leading and trailing

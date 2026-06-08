@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   depends.sh - Check the 'depends' array conforms to requirements.
 #
@@ -38,14 +39,14 @@ lint_depends() {
 	get_apexbuild_all_split_attributes depends depends_list
 
 	# this function requires extglob - save current status to restore later
-	local shellopts=$(shopt -p extglob)
+	local shellopts; shellopts=$(shopt -p extglob)
 	shopt -s extglob
 
 	for depend in "${depends_list[@]}"; do
 		name=${depend%%@(<|>|=|>=|<=)*}
 		lint_one_pkgname depends "$name" || ret=1
 		if [[ $name != "$depend" ]]; then
-			ver=${depend##$name@(<|>|=|>=|<=)}
+			ver=${depend##"$name"@(<|>|=|>=|<=)}
 			# Don't validate empty version because of https://bugs.archlinux.org/task/58776
 			if [[ -n $ver ]]; then
 				check_fullpkgver "$ver" depends || ret=1

@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   variable.sh - Check that variables are or are not arrays as appropriate
 #
@@ -40,20 +41,24 @@ lint_config_variables() {
 	local i keys ret=0
 
 	# global variables
-	for i in ${array[@]}; do
+	# shellcheck disable=SC2068
+	for i in "${array[@]}"; do
+		# shellcheck disable=SC1087
 		eval "keys=(\"\${!$i[@]}\")"
 		if (( ${#keys[*]} > 0 )); then
-			if ! is_array $i; then
+			if ! is_array "$i"; then
 				error "$(gettext "%s should be an array")" "$i"
 				ret=1
 			fi
 		fi
 	done
 
-	for i in ${string[@]}; do
+	# shellcheck disable=SC2068
+	for i in "${string[@]}"; do
+		# shellcheck disable=SC1087
 		eval "keys=(\"\${!$i[@]}\")"
 		if (( ${#keys[*]} > 0 )); then
-			if is_array $i; then
+			if is_array "$i"; then
 				error "$(gettext "%s should not be an array")" "$i"
 				ret=1
 			fi

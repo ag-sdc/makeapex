@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   source.sh - functions for downloading and extracting sources
 #
@@ -56,16 +57,16 @@ download_sources() {
 
 	"$get_source_fn" 'all_sources'
 	for netfile in "${all_sources[@]}"; do
-		pushd "$SRCDEST" &>/dev/null
+		pushd "$SRCDEST" &>/dev/null || exit
 
-		local proto=$(get_protocol "$netfile")
-		if declare -f download_$proto > /dev/null; then
-			download_$proto "$netfile"
+		local proto; proto=$(get_protocol "$netfile")
+		if declare -f download_"$proto" > /dev/null; then
+			download_"$proto" "$netfile"
 		else
 			download_file "$netfile"
 		fi
 
-		popd &>/dev/null
+		popd &>/dev/null || exit
 	done
 }
 
@@ -75,9 +76,9 @@ extract_sources() {
 
 	get_all_sources_for_arch 'all_sources'
 	for netfile in "${all_sources[@]}"; do
-		local proto=$(get_protocol "$netfile")
-		if declare -f extract_$proto > /dev/null; then
-			extract_$proto "$netfile"
+		local proto; proto=$(get_protocol "$netfile")
+		if declare -f extract_"$proto" > /dev/null; then
+			extract_"$proto" "$netfile"
 		else
 			extract_file "$netfile"
 		fi

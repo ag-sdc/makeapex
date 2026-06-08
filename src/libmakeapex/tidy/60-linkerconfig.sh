@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   linkerconfig.sh - Generate Android linker.config.json and apex_manifest.json deps
 #
@@ -140,6 +141,7 @@ tidy_linkerconfig() {
 		i=$((i+1))
 	done
 	if [[ $i -gt 0 ]]; then echo "" >> "$linker_config"; fi
+	# shellcheck disable=SC2129
 	echo "  ]," >> "$linker_config"
 	
 	echo "  \"visible\": true" >> "$linker_config"

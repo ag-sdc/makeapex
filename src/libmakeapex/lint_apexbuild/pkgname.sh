@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   pkgname.sh - Check the 'pkgname' variable conforms to requirements.
 #
@@ -61,6 +62,7 @@ lint_one_pkgname() {
 lint_pkgname() {
 	local ret=0 i
 
+	# shellcheck disable=SC2199
 	if [[ -z ${pkgname[@]} ]]; then
 		error "$(gettext "%s is not allowed to be empty.")" "pkgname"
 		ret=1

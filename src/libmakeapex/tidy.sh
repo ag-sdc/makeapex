@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   tidy.sh - functions for modifying/removing installed files before
 #   package creation
@@ -41,12 +42,14 @@ tidy_install() {
 	msg "$(gettext "Tidying install...")"
 
 	# options that remove unwanted files
-	for func in ${tidy_remove[@]}; do
+	# shellcheck disable=SC2068
+	for func in "${tidy_remove[@]}"; do
 		$func
 	done
 
 	# options that modify files
-	for func in ${tidy_modify[@]}; do
+	# shellcheck disable=SC2068
+	for func in "${tidy_modify[@]}"; do
 		$func
 	done
 }

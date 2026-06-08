@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   generate_signature.sh - functions for generating PGP signatures
 #
@@ -53,13 +54,13 @@ create_package_signatures() {
 		return 0
 	fi
 	local pkg pkgarch pkg_file
-	local fullver=$(get_full_version)
+	local fullver; fullver=$(get_full_version)
 
 	msg "$(gettext "Signing package(s)...")"
 
 	for pkg in "${pkgname[@]}"; do
 		# Skip split package if not relevant for current CARCH
-		if ! pkgarch=$(get_pkg_arch $pkg); then
+		if ! pkgarch=$(get_pkg_arch "$pkg"); then
 			continue
 		fi
 		pkg_file="$PKGDEST/${pkg}-${fullver}-${pkgarch}${PKGEXT}"

@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   util.sh - general utility functions
 #
@@ -102,12 +103,12 @@ ensure_writable_dir() {
 
 # source a file and fail if it does not succeed
 source_safe() {
-	local shellopts=$(shopt -p extglob)
+	local shellopts; shellopts=$(shopt -p extglob)
 	shopt -u extglob
 
 	if ! source "$@"; then
 		error "$(gettext "Failed to source %s")" "$1"
-		exit $E_MISSING_FILE
+		exit "$E_MISSING_FILE"
 	fi
 
 	eval "$shellopts"

@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   source.sh - functions to extract information from source URLs
 #
@@ -62,7 +63,7 @@ get_filename() {
 		return
 	fi
 
-	local proto=$(get_protocol "$netfile")
+	local proto; proto=$(get_protocol "$netfile")
 
 	case $proto in
 		bzr|fossil|git|hg|svn)
@@ -90,8 +91,8 @@ get_filename() {
 
 # Return the absolute filename of a source entry
 get_filepath() {
-	local file="$(get_filename "$1")"
-	local proto="$(get_protocol "$1")"
+	local file; file="$(get_filename "$1")"
+	local proto; proto="$(get_protocol "$1")"
 
 	case $proto in
 		bzr|git|hg|svn)

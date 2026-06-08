@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   buildenv.sh - functions for altering the build environment before
 #   compilation
@@ -38,11 +39,13 @@ prepare_buildenv() {
 	# ensure this function runs first
 	buildenv_buildflags
 
-	for func in ${buildenv_functions[@]}; do
+	# shellcheck disable=SC2068
+	for func in "${buildenv_functions[@]}"; do
 		$func || ret=1
 	done
 
 	# ensure all necessary build variables are exported
-	export ${buildenv_vars[@]} CHOST MAKEFLAGS
+	# shellcheck disable=SC2068
+	export "${buildenv_vars[@]}" CHOST MAKEFLAGS
 	return $ret
 }

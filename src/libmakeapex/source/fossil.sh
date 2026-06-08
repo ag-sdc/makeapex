@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   fossil.sh - function for handling the download and extraction of Fossil sources
 #
@@ -36,12 +37,12 @@ download_fossil() {
 
 	local netfile=$1
 
-	local db=$(get_filepath "$netfile")
+	local db; db=$(get_filepath "$netfile")
 	[[ -z "$db" ]] && db="$SRCDEST/$(get_filename "$netfile")"
 
 	local repo=$db
 
-	local url=$(get_url "$netfile")
+	local url; url=$(get_url "$netfile")
 	url=${url#fossil+}
 	url=${url%%#*}
 	url=${url%%\?*}
@@ -58,7 +59,7 @@ download_fossil() {
 		if ! [[ $(fossil remote -R "$db") = "$url" ]]; then
 			error "$(gettext "%s is not a clone of %s")" "$db" "$url"
 			plainerr "$(gettext "Aborting...")"
-			exit $E_NOT_A_CLONE_OF
+			exit "$E_NOT_A_CLONE_OF"
 		fi
 		msg2 "$(gettext "Updating %s %s repo...")" "${repo}" "fossil"
 		if ! fossil pull -R "$db"; then
@@ -71,16 +72,16 @@ download_fossil() {
 extract_fossil() {
 	local netfile=$1 tagname
 
-	local fragment=$(get_uri_fragment "$netfile")
-	local repo=$(get_filename "$netfile")
+	local fragment; fragment=$(get_uri_fragment "$netfile")
+	local repo; repo=$(get_filename "$netfile")
 
-	local db=$(get_filepath "$netfile")
+	local db; db=$(get_filepath "$netfile")
 	[[ -z "$db" ]] && db="$SRCDEST/$(get_filename "$netfile")"
 	local dir=${db%%.fossil}
 	dir=${dir##*/}
 
 	msg2 "$(gettext "Creating working copy of %s %s repo...")" "${repo}" "fossil"
-	pushd "$srcdir" &>/dev/null
+	pushd "$srcdir" &>/dev/null || exit
 
 	if [[ -d "$dir" ]]; then
 		if [[ -f "$dir/.fslckout" ]]; then
@@ -123,5 +124,5 @@ extract_fossil() {
 		exit 1
 	fi
 
-	popd &>/dev/null
+	popd &>/dev/null || exit
 }

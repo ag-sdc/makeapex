@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   compress.sh - functions to compress archives in a uniform manner
 #
@@ -32,7 +33,7 @@ source "$MAKEAPEX_LIBRARY/util/apexbuild.sh"
 compress_as() {
 	# $1: final archive filename extension for compression type detection
 
-	local cmd ext=${1#${1%.tar*}}
+	local cmd ext=${1#"${1%.tar*}"}
 
 	if ! get_compression_command "$ext" cmd; then
 		warning "$(gettext "'%s' is not a valid archive extension.")" "${ext:-${1##*/}}"

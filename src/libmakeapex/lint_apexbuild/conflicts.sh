@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   conflicts.sh - Check the 'conflicts' array conforms to requirements.
 #
@@ -38,14 +39,14 @@ lint_conflicts() {
 	get_apexbuild_all_split_attributes conflicts conflicts_list
 
 	# this function requires extglob - save current status to restore later
-	local shellopts=$(shopt -p extglob)
+	local shellopts; shellopts=$(shopt -p extglob)
 	shopt -s extglob
 
 	for conflict in "${conflicts_list[@]}"; do
 		name=${conflict%%@(<|>|=|>=|<=)*}
 		lint_one_pkgname conflicts "$name" || ret=1
 		if [[ $name != "$conflict" ]]; then
-			ver=${conflict##$name@(<|>|=|>=|<=)}
+			ver=${conflict##"$name"@(<|>|=|>=|<=)}
 			check_fullpkgver "$ver" conflicts || ret=1
 		fi
 	done

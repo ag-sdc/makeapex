@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   paths.sh - Check that pathname components do not contain odd characters
 #
@@ -34,7 +35,8 @@ lint_paths() {
 
 	local i ret=0
 
-	for i in ${pathvars[@]}; do
+	# shellcheck disable=SC2068
+	for i in "${pathvars[@]}"; do
 		if [[ ${!i} = *$'\n'* ]]; then
 			error "$(gettext "%s contains invalid characters: '%s'")" \
 					"$i" "${!i//[^$'\n']}"

@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   hg.sh - function for handling the download and "extraction" of Mercurial sources
 #
@@ -36,12 +37,12 @@ download_hg() {
 
 	local netfile=$1
 
-	local dir=$(get_filepath "$netfile")
+	local dir; dir=$(get_filepath "$netfile")
 	[[ -z "$dir" ]] && dir="$SRCDEST/$(get_filename "$netfile")"
 
-	local repo=$(get_filename "$netfile")
+	local repo; repo=$(get_filename "$netfile")
 
-	local url=$(get_url "$netfile")
+	local url; url=$(get_url "$netfile")
 	url=${url#hg+}
 	url=${url%%#*}
 
@@ -70,14 +71,14 @@ extract_hg() {
 		unset fragment
 	fi
 
-	local dir=$(get_filepath "$netfile")
+	local dir; dir=$(get_filepath "$netfile")
 	[[ -z "$dir" ]] && dir="$SRCDEST/$(get_filename "$netfile")"
 
 	local repo=${netfile##*/}
 	repo=${repo%%#*}
 
 	msg2 "$(gettext "Creating working copy of %s %s repo...")" "${repo}" "hg"
-	pushd "$srcdir" &>/dev/null
+	pushd "$srcdir" &>/dev/null || exit
 
 	local ref=default
 	# Is the repository configured to checkout some ref other than 'default'?
@@ -109,7 +110,7 @@ extract_hg() {
 		exit 1
 	fi
 
-	popd &>/dev/null
+	popd &>/dev/null || exit
 }
 
 calc_checksum_hg() {

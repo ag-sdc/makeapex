@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
 #
 #   svn.sh - function for handling the download and "extraction" of Subversion sources
 #
@@ -41,12 +42,12 @@ download_svn() {
 		unset fragment
 	fi
 
-	local dir=$(get_filepath "$netfile")
+	local dir; dir=$(get_filepath "$netfile")
 	[[ -z "$dir" ]] && dir="$SRCDEST/$(get_filename "$netfile")"
 
-	local repo=$(get_filename "$netfile")
+	local repo; repo=$(get_filename "$netfile")
 
-	local url=$(get_url "$netfile")
+	local url; url=$(get_url "$netfile")
 	if [[ $url != svn+ssh* ]]; then
 		url=${url#svn+}
 	fi
@@ -68,7 +69,7 @@ download_svn() {
 	if [[ ! -d "$dir" ]] || dir_is_empty "$dir" ; then
 		msg2 "$(gettext "Cloning %s %s repo...")" "${repo}" "svn"
 		mkdir -p "$dir/.makeapex"
-		if ! svn checkout -r ${ref} --config-dir "$dir/.makeapex" "$url" "$dir"; then
+		if ! svn checkout -r "${ref}" --config-dir "$dir/.makeapex" "$url" "$dir"; then
 			error "$(gettext "Failure while downloading %s %s repo")" "${repo}" "svn"
 			plainerr "$(gettext "Aborting...")"
 			exit 1
@@ -76,7 +77,7 @@ download_svn() {
 	elif (( ! HOLDVER )); then
 		msg2 "$(gettext "Updating %s %s repo...")" "${repo}" "svn"
 		cd_safe "$dir"
-		if ! svn update -r ${ref}; then
+		if ! svn update -r "${ref}"; then
 			# only warn on failure to allow offline builds
 			warning "$(gettext "Failure while updating %s %s repo")" "${repo}" "svn"
 		fi
@@ -86,7 +87,7 @@ download_svn() {
 extract_svn() {
 	local netfile=$1
 
-	local dir=$(get_filepath "$netfile")
+	local dir; dir=$(get_filepath "$netfile")
 	[[ -z "$dir" ]] && dir="$SRCDEST/$(get_filename "$netfile")"
 
 	local repo=${netfile##*/}
