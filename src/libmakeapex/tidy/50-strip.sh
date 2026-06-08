@@ -112,9 +112,7 @@ collect_debug_symbols() {
 			local target
 			mkdir -p "$dbgdir/.build-id/${bid:0:2}"
 
-			target="../../../../../${binary#./}"
-			target="${target/..\\/..\\/vendor\\/lib\\/}"
-			target="${target/..\\/vendor\\/}"
+			target="../../../../${binary#./}"
 			ln -s "$target" "$dbgdir/.build-id/${bid:0:2}/${bid:2}"
 
 			target="../../${binary#./}.debug"
@@ -189,8 +187,8 @@ tidy_strip() {
 		[[ -z ${STRIP_STATIC+x} ]] && STRIP_STATIC="-S"
 
 		if check_option "debug" "y"; then
-			dbgdir="$pkgdirbase/$pkgbase-@DEBUGSUFFIX@/vendor/lib/debug"
-			dbgsrcdir="${DBGSRCDIR:-/vendor/src/debug}/${pkgbase}"
+			dbgdir="$pkgdirbase/$pkgbase-@DEBUGSUFFIX@/lib/debug"
+			dbgsrcdir="${DBGSRCDIR:-/src/debug}/${pkgbase}"
 			dbgsrc="$pkgdirbase/$pkgbase-@DEBUGSUFFIX@$dbgsrcdir"
 			mkdir -p "$dbgdir" "$dbgsrc"
 		fi
@@ -239,7 +237,7 @@ tidy_strip() {
 	elif check_option "debug" "y"; then
 		msg2 "$(gettext "Copying source files needed for debug symbols...")"
 
-		dbgsrcdir="${DBGSRCDIR:-/vendor/src/debug}/${pkgbase}"
+		dbgsrcdir="${DBGSRCDIR:-/src/debug}/${pkgbase}"
 		dbgsrc="$pkgdirbase/$pkgbase/$dbgsrcdir"
 		mkdir -p "$dbgsrc"
 

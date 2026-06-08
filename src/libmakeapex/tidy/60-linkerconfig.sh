@@ -37,9 +37,9 @@ tidy_linkerconfig() {
 		if [[ "$p" == _* ]]; then
 			local dummy_name="libdummy${dummy_prefix}${p//_/-}.so"
 			msg2 "$(gettext "Generating virtual dependency library: $dummy_name")"
-			mkdir -p "$pkgdir/vendor/lib"
-			# Echo an empty C file and compile it as a shared library
-			echo 'void dummy(){}' | gcc -shared -xc - -o "$pkgdir/vendor/lib/$dummy_name"
+			mkdir -p "$pkgdir/lib"
+			# Generate a minimalist shared library to satisfy the dependency requirement natively
+			echo 'void dummy(){}' | gcc -shared -xc - -o "$pkgdir/lib/$dummy_name"
 			prov_libs+=("$dummy_name")
 		fi
 	done

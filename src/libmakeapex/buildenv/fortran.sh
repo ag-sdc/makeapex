@@ -31,7 +31,7 @@ buildenv_functions+=('buildenv_fortran')
 
 buildenv_fortran() {
 	if check_option "debug" "y" && ! check_option "buildflags" "n"; then
-		append_once DEBUG_FFLAGS "-ffile-prefix-map=$srcdir=${DBGSRCDIR:-/vendor/src/debug}/${pkgbase}"
+		append_once DEBUG_FFLAGS "-ffile-prefix-map=$srcdir=${DBGSRCDIR:-/src/debug}/${pkgbase}"
 		append_once FFLAGS "$DEBUG_FFLAGS"
 		append_once FCFLAGS "$DEBUG_FFLAGS"
 	fi

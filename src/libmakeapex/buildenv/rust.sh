@@ -31,7 +31,7 @@ buildenv_functions+=('buildenv_rust')
 
 buildenv_rust() {
 	if check_option "debug" "y" && ! check_option "buildflags" "n"; then
-		append_once DEBUG_RUSTFLAGS "--remap-path-prefix=$srcdir=${DBGSRCDIR:-/vendor/src/debug}/${pkgbase}"
+		append_once DEBUG_RUSTFLAGS "--remap-path-prefix=$srcdir=${DBGSRCDIR:-/src/debug}/${pkgbase}"
 		append_once RUSTFLAGS "$DEBUG_RUSTFLAGS"
 	fi
 }

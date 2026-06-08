@@ -31,8 +31,8 @@ buildenv_functions+=('buildenv_debugflags')
 
 buildenv_debugflags() {
 	if check_option "debug" "y" && ! check_option "buildflags" "n"; then
-		append_once DEBUG_CFLAGS "-ffile-prefix-map=$srcdir=${DBGSRCDIR:-/vendor/src/debug}/${pkgbase}"
-		append_once DEBUG_CXXFLAGS "-ffile-prefix-map=$srcdir=${DBGSRCDIR:-/vendor/src/debug}/${pkgbase}"
+		append_once DEBUG_CFLAGS "-ffile-prefix-map=$srcdir=${DBGSRCDIR:-/src/debug}/${pkgbase}"
+		append_once DEBUG_CXXFLAGS "-ffile-prefix-map=$srcdir=${DBGSRCDIR:-/src/debug}/${pkgbase}"
 		append_once CFLAGS "$DEBUG_CFLAGS"
 		append_once CXXFLAGS "$DEBUG_CXXFLAGS"
 	fi

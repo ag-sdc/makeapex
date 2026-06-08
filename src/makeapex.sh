@@ -304,7 +304,6 @@ check_deps() {
 			local found=0
 			local search_paths=(
 				"/system/lib64" "/system/lib"
-				"/vendor/lib64" "/vendor/lib"
 				"/system_ext/lib64" "/system_ext/lib"
 				"/product/lib64" "/product/lib"
 				"/apex/com.android.runtime/lib64/bionic" "/apex/com.android.runtime/lib/bionic"
@@ -317,7 +316,7 @@ check_deps() {
 			done
 
 			if (( ! found )); then
-				for apex_dir in /apex/*/lib64 /apex/*/lib /apex/*/vendor/lib64 /apex/*/vendor/lib; do
+				for apex_dir in /apex/*/lib64 /apex/*/lib; do
 					if [[ -e "$apex_dir/$target_soname" ]]; then
 						found=1
 						break
@@ -760,10 +759,10 @@ EOF
 	rm -f apex_payload.img
 	
 	if [[ "${payload_fs:-erofs}" == "ext4" ]]; then
-		local size_kb=$(du -sk "$(dirname "$pkgdir")" | awk '{print $1}')
+		local size_kb=$(du -sk "$pkgdir" | awk '{print $1}')
 		local size_bytes=$(( (size_kb + 2048) * 1024 ))
 		local part_size=$(( size_bytes + 1048576 ))
-		mke2fs -F -O ^has_journal -b 4096 -m 0 -t ext4 -d "$(dirname "$pkgdir")"/ apex_payload.img $((size_bytes / 1024))K >/dev/null 2>&1
+		mke2fs -F -O ^has_journal -b 4096 -m 0 -t ext4 -d "$pkgdir"/ apex_payload.img $((size_bytes / 1024))K >/dev/null 2>&1
 		
 		avbtool add_hashtree_footer \
 			--do_not_generate_fec \
@@ -772,7 +771,7 @@ EOF
 			--partition_name apex_payload \
 			--key payload_key.pem
 	else
-		mkfs.erofs -z lz4hc apex_payload.img "$(dirname "$pkgdir")"/ >/dev/null 2>&1
+		mkfs.erofs -z lz4hc apex_payload.img "$pkgdir"/ >/dev/null 2>&1
 		local img_size=$(stat -c%s apex_payload.img)
 		local part_size=$((img_size + 1048576))
 		
@@ -812,7 +811,7 @@ create_debug_package() {
 		return 0
 	fi
 
-	local pkgdir="$pkgdirbase/$pkgbase-@DEBUGSUFFIX@/vendor"
+	local pkgdir="$pkgdirbase/$pkgbase-@DEBUGSUFFIX@"
 
 	# check if we have any debug symbols to package
 	if dir_is_empty "$pkgdir/usr/lib/debug"; then
@@ -1040,9 +1039,9 @@ restore_package_variables() {
 
 run_single_packaging() {
 	if (( SPLITPKG )); then
-		pkgdir="$pkgdirbase/$pkgbase/vendor"
+		pkgdir="$pkgdirbase/$pkgbase"
 	else
-		pkgdir="$pkgdirbase/$pkgname/vendor"
+		pkgdir="$pkgdirbase/$pkgname"
 	fi
 	mkdir -p "$pkgdir"
 	if [[ -n $1 ]] || (( PKGFUNC )); then
@@ -1373,7 +1372,7 @@ else
 fi
 
 # set pkgdir to something "sensible" for (not recommended) use during build()
-pkgdir="$pkgdirbase/$pkgbase/vendor"
+pkgdir="$pkgdirbase/$pkgbase"
 
 if (( GENINTEG )); then
 	mkdir -p "$srcdir"
