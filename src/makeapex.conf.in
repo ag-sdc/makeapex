@@ -5,3 +5,6 @@ SRCEXT=".src.tar.gz"
 
 # Compress APEX format into .capex
 compress_apex="false"
+
+# Build environment options
+BUILDENV=(color check !sign)
