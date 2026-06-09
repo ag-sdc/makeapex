@@ -1,23 +1,5 @@
 #!/bin/bash
 # shellcheck disable=SC1091,SC2154,SC2034,SC1090
-#
-#   library_depends.sh - Automatically add library requirements to depends
-#
-#   Copyright (c) 2021-2025 Pacman Development Team <pacman-dev@lists.archlinux.org>
-#
-#   This program is free software; you can redistribute it and/or modify
-#   it under the terms of the GNU General Public License as published by
-#   the Free Software Foundation; either version 2 of the License, or
-#   (at your option) any later version.
-#
-#   This program is distributed in the hope that it will be useful,
-#   but WITHOUT ANY WARRANTY; without even the implied warranty of
-#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#   GNU General Public License for more details.
-#
-#   You should have received a copy of the GNU General Public License
-#   along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
 
 [[ -n "$LIBMAKEAPEX_AUTODEP_LIBRARY_DEPENDS_SH" ]] && return
 LIBMAKEAPEX_AUTODEP_LIBRARY_DEPENDS_SH=1
@@ -27,53 +9,119 @@ MAKEAPEX_LIBRARY=${MAKEAPEX_LIBRARY:-"@libmakeapexdir@"}
 autodep_functions+=('library_depends')
 
 library_depends() {
-	if check_option "autodeps" "y"; then
-		local dep filename libdeps libdir libpath prefix sofile
-		declare -a libdeps
+	if [[ $vndk == "static" ]]; then
+		return 0
+	fi
 
-		while IFS= read -rd '' filename; do
-			for sofile in $(LC_ALL=C readelf -d "$filename" 2>/dev/null | sed -nr 's/.*Shared library: \[(.*)\].*/\1/p'); do
-				# get the full path of the library
-				libpath=$(ldd "$filename" | sed -nr "s/.$sofile => (.*) \(.*\)/\1/p")
+	local filename sofile
+	declare -A libdeps
+	declare -a process_queue
 
-				# if ldd can not find the library, it is likely part of the package and not in filesystem
-				if [[ -z $libpath ]]; then
-					continue
-				fi
+	# Find all ELF files currently in pkgdir and queue their dependencies
+	while IFS= read -rd '' filename; do
+		while IFS= read -r sofile; do
+			if [[ -z $sofile ]]; then continue; fi
+			if [[ -z ${libdeps["$sofile"]} ]]; then
+				libdeps["$sofile"]=1
+				process_queue+=("$sofile")
+			fi
+		done < <(LC_ALL=C readelf -d "$filename" 2>/dev/null | sed -nr 's/.*Shared library: \[(.*)\].*/\1/p')
+	done < <(find "$pkgdir" -type f \( -perm -u+x -o -name "*.so" -o -name "*.so.*" \) -print0)
 
-				# skip if the library is part of the package
-				if [[ -e "$pkgdir/$libpath" ]]; then
-					continue
-				fi
+	local BIONIC_LIBS=(libc.so libm.so libdl.so libdl_android.so)
 
-				# find the prefix for the dependency
-				libpath=${libpath#/}
-				libpath=${libpath%/*}
+	# Process queue (allows for recursive dependency tracking if we bundle new .so files)
+	local i=0
+	while [[ $i -lt ${#process_queue[@]} ]]; do
+		sofile="${process_queue[$i]}"
+		i=$((i+1))
 
-				unset prefix
-				# shellcheck disable=SC2068
-				for libdir in "${LIB_DIRS[@]}"; do
-					# shellcheck disable=SC2053
-					if [[ ${libdir#*:} == ${libpath} ]]; then
-						prefix=${libdir%%:*}
-					fi
+		# Skip if provided inside the APEX itself
+		if [[ -e "$pkgdir/lib/$sofile" || -e "$pkgdir/lib64/$sofile" ]]; then
+			continue
+		fi
+
+		local is_bionic=0
+		for b in "${BIONIC_LIBS[@]}"; do
+			if [[ $sofile == "$b" ]]; then
+				is_bionic=1
+				break
+			fi
+		done
+
+		if [[ $vndk == "bundled" && $is_bionic -eq 0 ]]; then
+			local found=0
+			local vndk_root="${VNDK_DIR:-${ANDROID_HOME:-$HOME/Android/Sdk}/vndk}"
+			local local_path
+			local_path=$(find "$vndk_root" -name "$sofile" 2>/dev/null | head -n 1)
+
+			local target_dir="$pkgdir/lib"
+			mkdir -p "$target_dir"
+
+			if [[ -n $local_path ]]; then
+				msg2 "$(gettext "Bundling local VNDK library %s")" "$sofile"
+				cp "$local_path" "$target_dir/$sofile"
+				found=1
+			elif [[ $FETCH_VNDK -eq 1 ]]; then
+				local tgt_api="${api_level:-30}"
+				local tgt_arch="x86_64"
+				if [[ $CARCH == "aarch64" ]]; then tgt_arch="arm64"; fi
+				if [[ $CARCH == "arm" || $CARCH == "armv7h" ]]; then tgt_arch="arm"; fi
+				if [[ $CARCH == "i686" ]]; then tgt_arch="x86"; fi
+
+				# Fallback architecture mapping for googlesource paths
+				local arch_path="arch-${tgt_arch}"
+				if [[ $tgt_arch == "x86_64" ]]; then arch_path="arch-x86_64"; fi # sometimes arch-x86-x86_64
+				
+				local remote_base="https://android.googlesource.com/platform/prebuilts/vndk/v${tgt_api}/+/refs/heads/master/${tgt_arch}"
+				
+				msg2 "$(gettext "Fetching remote VNDK library %s (API %s)")" "$sofile" "$tgt_api"
+				
+				# Check vndk-sp and vndk-core and different arch- variants
+				for sub in vndk-sp vndk-core; do
+					for apath in "arch-${tgt_arch}" "arch-${tgt_arch}-${tgt_arch}" "arch-x86-x86_64"; do
+						local dl_url="${remote_base}/${apath}/shared/${sub}/${sofile}?format=TEXT"
+						local tmp_dl
+						tmp_dl=$(mktemp)
+						if curl -s "$dl_url" | base64 -d > "$tmp_dl" 2>/dev/null && LC_ALL=C readelf -h "$tmp_dl" 2>/dev/null | grep -q ELF; then
+							mv "$tmp_dl" "$target_dir/$sofile"
+							found=1
+							
+							# Fetch lsdump
+							local lsdump_url="https://android.googlesource.com/platform/prebuilts/abi-dumps/+/refs/heads/master/vndk/v${tgt_api}/${tgt_arch}/source-based/${sub}/${sofile}.lsdump?format=TEXT"
+							if curl -s "$lsdump_url" | base64 -d > "$target_dir/${sofile}.lsdump" 2>/dev/null; then
+								msg2 "$(gettext "Fetched ABI dump %s.lsdump")" "$sofile"
+							else
+								rm -f "$target_dir/${sofile}.lsdump"
+							fi
+							break 2
+						fi
+						rm -f "$tmp_dl"
+					done
 				done
+			fi
 
-				if [[ -z ${prefix} ]]; then
-					continue
+			if [[ $found -eq 0 ]]; then
+				error "$(gettext "Cannot find or fetch library %s to bundle for vndk=bundled")" "$sofile"
+				exit 1
+			fi
+
+			# Recursively process the newly bundled library for its dependencies
+			while IFS= read -r new_so; do
+				if [[ -n $new_so && -z ${libdeps["$new_so"]} ]]; then
+					libdeps["$new_so"]=1
+					process_queue+=("$new_so")
 				fi
+			done < <(LC_ALL=C readelf -d "$target_dir/$sofile" 2>/dev/null | sed -nr 's/.*Shared library: \[(.*)\].*/\1/p')
 
-				# only add library dependency if it exists - this helps bootstrapping dependencies
-				if [[ $(run_pacman -T "$prefix:$sofile") ]]; then
-					continue
-				fi
+		else
+			# Not bundled (off, shared, or it's a bionic library)
+			echo "$sofile" >> "$pkgdirbase/.requireNativeLibs"
+		fi
+	done
 
-				libdeps+=("$prefix:$sofile")
-			done
-
-		done < <(find "$pkgdir" -type f -perm -u+x -print0)
-
-		# shellcheck disable=SC2207
-		depends+=($(printf '%s\n' "${libdeps[@]}" | LC_ALL=C sort -u))
+	# Remove duplicates in .requireNativeLibs if created
+	if [[ -f "$pkgdirbase/.requireNativeLibs" ]]; then
+		sort -u -o "$pkgdirbase/.requireNativeLibs" "$pkgdirbase/.requireNativeLibs"
 	fi
 }

@@ -35,7 +35,7 @@ apexbuild_schema_arrays=(arch backup checkdepends conflicts depends groups
                         "${known_hash_algos[@]/%/sums}")
 
 apexbuild_schema_strings=(api_level changelog epoch install org pkgbase pkgdesc pkgrel pkgver
-                         url)
+                         url vndk)
 
 apexbuild_schema_arch_arrays=(checkdepends conflicts depends makedepends
                              optdepends options provides replaces source

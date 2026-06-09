@@ -1,0 +1,24 @@
+#!/bin/bash
+# shellcheck disable=SC2034,SC2154,SC1090
+
+[[ -n "$LIBMAKEAPEX_LINT_APEXBUILD_VNDK_SH" ]] && return
+LIBMAKEAPEX_LINT_APEXBUILD_VNDK_SH=1
+
+MAKEAPEX_LIBRARY=${MAKEAPEX_LIBRARY:-"@libmakeapexdir@"}
+
+source "$MAKEAPEX_LIBRARY/util/message.sh"
+
+lint_apexbuild_functions+=('lint_vndk')
+
+lint_vndk() {
+	local ret=0
+
+	if [[ -n $vndk ]]; then
+		if [[ $vndk != "off" && $vndk != "static" && $vndk != "bundled" && $vndk != "shared" ]]; then
+			error "$(gettext "%s is not allowed to be %s")" "vndk" "'$vndk'"
+			ret=1
+		fi
+	fi
+
+	return $ret
+}

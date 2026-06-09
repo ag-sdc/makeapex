@@ -25,6 +25,7 @@ sources = [
   'source.sh.in',
   'util.sh.in',
   'variable.sh.in',
+  'vndk.sh.in',
   'xdata.sh.in',
 ]
 
