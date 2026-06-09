@@ -4,6 +4,7 @@
 #   optdepends.sh - Check the 'optdepends' array conforms to requirements.
 #
 #   Copyright (c) 2014-2025 Pacman Development Team <pacman-dev@lists.archlinux.org>
+#   Copyright (c) 2026 by Bui Gia Vien <shadichy@blisslabs.org>
 #
 #   This program is free software; you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
