@@ -687,58 +687,65 @@ create_package() {
 	if [[ -n $custom_manifest_xml && -f $custom_manifest_xml ]]; then
 		cp "$custom_manifest_xml" AndroidManifest.xml || exit 1
 	else
-		cat <<EOF > AndroidManifest.xml
-<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-  package="$android_pkgname" android:versionCode="1" android:versionName="$fullver">
-  <uses-sdk android:minSdkVersion="${api}" android:targetSdkVersion="${api}"/>
-  <application android:extractNativeLibs="false" android:hasCode="false" />
-</manifest>
-EOF
+		# Scoped redirection
+		{
+			echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+			echo "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\" package=\"$android_pkgname\" android:versionCode=\"1\" android:versionName=\"$fullver\">"
+			{
+				echo "<uses-sdk android:minSdkVersion=\"${api}\" android:targetSdkVersion=\"${api}\"/>"
+				echo "<application android:extractNativeLibs=\"false\" android:hasCode=\"false\" />"
+			} | add_tab
+			echo "</manifest>"
+		} > AndroidManifest.xml
 	fi
 
 	if [[ -n $custom_manifest_json && -f $custom_manifest_json ]]; then
 		cp "$custom_manifest_json" apex_manifest.json || exit 1
 	else
-		echo "{" > apex_manifest.json
-		echo "  \"name\": \"$android_pkgname\"," >> apex_manifest.json
-		echo -n "  \"version\": 1" >> apex_manifest.json
-
-		if [[ -f "$pkgdirbase/.provideNativeLibs" ]]; then
-			echo "," >> apex_manifest.json
-			echo "  \"provideNativeLibs\": [" >> apex_manifest.json
-			local i=0
-			while IFS= read -r line; do
-				if [[ $i -gt 0 ]]; then echo "    ," >> apex_manifest.json; else echo "    " >> apex_manifest.json; fi
-				echo -n "    \"$line\"" >> apex_manifest.json
-				i=$((i+1))
-			done < "$pkgdirbase/.provideNativeLibs"
-			if [[ $i -gt 0 ]]; then echo "" >> apex_manifest.json; fi
-			echo -n "  ]" >> apex_manifest.json
-		fi
-
-		if [[ -f "$pkgdirbase/.requireNativeLibs" ]]; then
-			echo "," >> apex_manifest.json
-			echo "  \"requireNativeLibs\": [" >> apex_manifest.json
-			local i=0
-			while IFS= read -r line; do
-				if [[ $i -gt 0 ]]; then echo "    ," >> apex_manifest.json; else echo "    " >> apex_manifest.json; fi
-				echo -n "    \"$line\"" >> apex_manifest.json
-				i=$((i+1))
-			done < "$pkgdirbase/.requireNativeLibs"
-			if [[ $i -gt 0 ]]; then echo "" >> apex_manifest.json; fi
-			echo -n "  ]" >> apex_manifest.json
-		fi
-		
-		echo "" >> apex_manifest.json
-		echo "}" >> apex_manifest.json
+		{
+			echo "{"
+			{
+				echo "\"name\": \"$android_pkgname\","
+				echo -n "\"version\": 1"
+				if [[ -f "$pkgdirbase/.provideNativeLibs" ]]; then
+					echo ","
+					echo "\"provideNativeLibs\": ["
+					{
+						local i=0
+						while IFS= read -r line; do
+							if [[ $i -gt 0 ]]; then echo "," ; else echo "" ; fi
+							echo -n "\"$line\""
+							i=$((i+1))
+						done < "$pkgdirbase/.provideNativeLibs"
+						if [[ $i -gt 0 ]]; then echo "" ; fi
+					} | add_tab
+					echo -n "]"
+				fi
+				if [[ -f "$pkgdirbase/.requireNativeLibs" ]]; then
+					echo ","
+					echo "\"requireNativeLibs\": ["
+					{
+						local i=0
+						while IFS= read -r line; do
+							if [[ $i -gt 0 ]]; then echo "," ; else echo "" ; fi
+							echo -n "\"$line\""
+							i=$((i+1))
+						done < "$pkgdirbase/.requireNativeLibs"
+						if [[ $i -gt 0 ]]; then echo "" ; fi
+					} | add_tab
+					echo -n "]"
+				fi
+				echo ""
+			} | add_tab
+			echo "}"
+		} > apex_manifest.json
 	fi
 
 	local ANDROID_SDK=${ANDROID_HOME:-"$HOME/Android/Sdk"}
 
 	local ANDROID_JAR; ANDROID_JAR="$(find "$ANDROID_SDK"/platforms	-iname "android-${api}*" -print -quit 2>/dev/null)/android.jar"
 	if [ "$ANDROID_JAR" = /android.jar ]; then
-		error "android.jar not found in $ANDROID_SDK/platforms/android-${api}*/android.jar"
+		error "android.jar not found for API level $api"
 		exit 1
 	fi
 	

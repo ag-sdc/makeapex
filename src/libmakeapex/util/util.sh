@@ -123,3 +123,7 @@ append_once() {
 		var+=" $value"
 	fi
 }
+
+# Add a tab to beginning of string
+# usage : add_tab( $value )
+add_tab() { sed 's/^/	/'; }

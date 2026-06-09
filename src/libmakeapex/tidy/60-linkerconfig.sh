@@ -54,6 +54,13 @@ tidy_linkerconfig() {
 			soname=$(LC_ALL=C readelf -d "$binary" 2>/dev/null | grep 'SONAME' | sed -E 's/.*\[([^]]+)\].*/\1/')
 			if [[ -n "$soname" ]]; then
 				prov_libs+=("$soname")
+			else
+				local bin_name; bin_name=$(basename "$binary")
+				local dummy_name="libdummy${dummy_prefix}${bin_name//_/-}.so"
+				msg2 "$(gettext "Generating virtual dependency library for binary: $dummy_name")"
+				mkdir -p "$pkgdir/lib"
+				echo 'void dummy(){}' | gcc -shared -xc - -o "$pkgdir/lib/$dummy_name"
+				prov_libs+=("$dummy_name")
 			fi
 
 			# Extract NEEDED (what it requires)
@@ -73,6 +80,50 @@ tidy_linkerconfig() {
 			prov_libs+=("$symlink_name")
 		fi
 	done < <(find "$pkgdir" -type l -print0 2>/dev/null)
+	
+	# 2c. Add libdummy for share/<resource> directories
+	for share_dir in "$pkgdir/share" "$pkgdir/usr/share"; do
+		if [[ -d "$share_dir" ]]; then
+			for resource_path in "$share_dir"/*; do
+				if [[ -d "$resource_path" ]]; then
+					local resource_name; resource_name=$(basename "$resource_path")
+					
+					local skip=1
+					case "$resource_name" in
+						icon*)
+							if [[ "$pkgname" == *icon* ]] || [[ "$pkgbase" == *icon* ]]; then skip=0; fi
+							;;
+						theme*)
+							if [[ "$pkgname" == *theme* ]] || [[ "$pkgbase" == *theme* ]]; then skip=0; fi
+							;;
+						zoneinfo)
+							if [[ "$pkgname" == "tzdata" ]] || [[ "$pkgbase" == "tzdata" ]]; then skip=0; fi
+							;;
+						terminfo)
+							if [[ "$pkgname" =~ ^(lib)?ncursesw?$ ]] || [[ "$pkgbase" =~ ^(lib)?ncursesw?$ ]]; then skip=0; fi
+							;;
+						doc|man|info|background*|wallpaper*|locale|applications|mime|licenses|pkgconfig|aclocal|zsh|bash-completion)
+							skip=1
+							;;
+						*)
+							skip=0
+							;;
+					esac
+
+					if [[ $skip -eq 1 ]]; then
+						continue
+					fi
+
+					local dummy_name="libdummy${dummy_prefix}${resource_name//_/-}.so"
+					msg2 "$(gettext "Generating virtual dependency library for shared resource: $dummy_name")"
+					mkdir -p "$pkgdir/lib"
+					echo 'void dummy(){}' | gcc -shared -xc - -o "$pkgdir/lib/$dummy_name"
+					prov_libs+=("$dummy_name")
+				fi
+			done
+		fi
+	done
+
 	# 3. Add explicit depends and provides from APEXBUILD
 	for d in "${depends[@]}"; do
 		if [[ "$d" == *.so ]]; then
