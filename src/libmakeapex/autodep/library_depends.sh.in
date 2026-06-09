@@ -70,7 +70,7 @@ library_depends() {
 
 		if [[ $vndk == "bundled" && $is_bionic -eq 0 ]]; then
 			local found=0
-			local vndk_root="${VNDK_DIR:-${ANDROID_HOME:-$HOME/Android/Sdk}/vndk}"
+			local vndk_root="${VNDK_DIR:-$ANDROID_HOME/vndk}"
 			local local_path
 			local_path=$(find "$vndk_root" -name "$sofile" 2>/dev/null | head -n 1)
 

@@ -84,6 +84,7 @@ SPLITPKG=0
 SOURCEONLY=0
 VERIFYSOURCE=0
 
+export ANDROID_HOME=${ANDROID_HOME:-"$HOME/Android/Sdk"}
 MAKEAPEX_LINT_APEXBUILD=${MAKEAPEX_LINT_APEXBUILD:-1}
 
 PACMAN_OPTS=()
@@ -750,7 +751,7 @@ create_package() {
 		} > apex_manifest.json
 	fi
 
-	local ANDROID_SDK=${ANDROID_HOME:-"$HOME/Android/Sdk"}
+	local ANDROID_SDK="$ANDROID_HOME"
 
 	local ANDROID_JAR; ANDROID_JAR="$(find "$ANDROID_SDK"/platforms	-iname "android-${api}*" -print -quit 2>/dev/null)/android.jar"
 	if [ "$ANDROID_JAR" = /android.jar ]; then
