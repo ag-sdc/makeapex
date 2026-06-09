@@ -8,6 +8,7 @@ arch=('any')
 url="https://github.com/shadichy/makeapex"
 license=('GPL')
 depends=('android-tools' 'android-sdk-build-tools' 'bash' 'coreutils' 'awk' 'sed' 'e2fsprogs' 'erofs-utils' 'zip' 'unzip' 'openssl' 'python' 'binutils' 'gcc' 'android-sdk-build-tools' 'android-platform-29')
+makedepends=('meson' 'ninja')
 optdepends=(
   # All android-platform-{30..37} packages
   'android-platform-30: API level 30 support'
@@ -22,7 +23,13 @@ optdepends=(
 source=("makeapex::git+file://${startdir}/../../")
 md5sums=('SKIP')
 
+build() {
+  cd "$srcdir/makeapex"
+  meson setup build --prefix=/usr
+  ninja -C build
+}
+
 package() {
-  cd "$srcdir/makeapex/src"
-  make DESTDIR="$pkgdir" PREFIX=/usr install
+  cd "$srcdir/makeapex"
+  DESTDIR="$pkgdir" ninja -C build install
 }

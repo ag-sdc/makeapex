@@ -1,0 +1,85 @@
+#!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
+#
+#   config.sh - functions for handling makeapex config files
+#
+#   Copyright (c) 2006-2025 Pacman Development Team <pacman-dev@lists.archlinux.org>
+#   Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
+#
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation; either version 2 of the License, or
+#   (at your option) any later version.
+#
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
+#
+#   You should have received a copy of the GNU General Public License
+#   along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+[[ -n "$LIBMAKEAPEX_UTIL_CONFIG_SH" ]] && return
+LIBMAKEAPEX_UTIL_CONFIG_SH=1
+
+MAKEAPEX_LIBRARY=${MAKEAPEX_LIBRARY:-"@libmakeapexdir@"}
+
+source "$MAKEAPEX_LIBRARY/util/error.sh"
+source "$MAKEAPEX_LIBRARY/util/message.sh"
+source "$MAKEAPEX_LIBRARY/util/util.sh"
+
+# correctly source makeapex.conf, respecting user precedence and the system conf
+source_makeapex_config() {
+	# $1: override system config file
+
+	local MAKEAPEX_CONF=${1:-${MAKEAPEX_CONF:-$confdir/makeapex.conf}}
+
+	# Source the config file; fail if it is not found
+	if [[ -r $MAKEAPEX_CONF ]]; then
+		source_safe "$MAKEAPEX_CONF"
+		if [[ -d "$MAKEAPEX_CONF.d" ]] && compgen -G "$MAKEAPEX_CONF.d"/'*.conf' > /dev/null; then
+			for c in "$MAKEAPEX_CONF.d"/*.conf; do
+				source_safe "$c"
+			done
+		fi
+	else
+		error "$(gettext "%s not found.")" "$MAKEAPEX_CONF"
+		plainerr "$(gettext "Aborting...")"
+		exit "$E_CONFIG_ERROR"
+	fi
+
+	# Source user-specific makeapex.conf overrides, but only if no override config
+	# file was specified
+	XDG_PACMAN_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/pacman"
+	if [[ $MAKEAPEX_CONF = "$confdir/makeapex.conf" ]]; then
+		if [[ -r $XDG_PACMAN_DIR/makeapex.conf ]]; then
+			source_safe "$XDG_PACMAN_DIR/makeapex.conf"
+		elif [[ -r $HOME/.makeapex.conf ]]; then
+			source_safe "$HOME/.makeapex.conf"
+		fi
+	fi
+}
+
+# load makeapex.conf by sourcing the configuration files, and preserving
+# existing environment settings
+load_makeapex_config() {
+	# $1: override system config file
+
+	local MAKEAPEX_CONF=${1:-${MAKEAPEX_CONF:-$confdir/makeapex.conf}}
+
+	# preserve environment variables to override makeapex.conf
+	local restore_envvars; restore_envvars=$(
+		for var in PKGDEST SRCDEST SRCPKGDEST LOGDEST BUILDDIR PKGEXT SRCEXT GPGKEY PACKAGER CARCH; do
+			# the output of 'declare -p' results in locally scoped values when used within a function
+			[[ -v $var ]] && printf '%s=%s\n' "$var" "${!var@Q}"
+		done
+	)
+
+	source_makeapex_config "$MAKEAPEX_CONF"
+
+	# prevent altering these directly
+	readonly -a BUILDENV OPTIONS
+
+	eval "$restore_envvars"
+}

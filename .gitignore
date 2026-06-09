@@ -1,20 +1,12 @@
-# Prebuilts
-avbtool
-*.img
-*.apk
-*.apex
-*.zip
-*.tar
-*.zst
-
-# Logs
-*.log
-
 # Editor
 .vscode/
 .idea/
 *.swp
 
-# Build artifacts
-pkg/
-src/
+# OS-specific
+.DS_Store
+
+# Build
+build/
+dist/
+out/

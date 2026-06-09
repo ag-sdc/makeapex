@@ -1,0 +1,32 @@
+#!@BASH@
+
+input=$1
+output=$2
+mode=$3
+
+sed \
+  -e "s|@sysconfdir[@]|@sysconfdir@|g" \
+  -e "s|@libmakeapexdir[@]|@LIBMAKEAPEXDIR@|g" \
+  -e "s|@prefix[@]|@PREFIX@|g" \
+  -e "1s|#!/bin/bash|#!@BASH@|g" \
+  -e "s|@PACKAGE_VERSION[@]|@PACKAGE_VERSION@|g" \
+  -e "s|@PACKAGE_NAME[@]|@PACKAGE_NAME@|g" \
+  -e "s|@BUILDSCRIPT[@]|@BUILDSCRIPT@|g" \
+  -e "s|@FILECMD[@]|@FILECMD@|g" \
+  -e "s|@BSDTAR_NO_READ_SPARSE[@]|@BSDTAR_NO_READ_SPARSE@|g" \
+  -e "s|@AAPT2[@]|@AAPT2@|g" \
+  -e "s|@AVBTOOL[@]|@AVBTOOL@|g" \
+  -e "s|@ZIPALIGN[@]|@ZIPALIGN@|g" \
+  -e "s|@APKSIGNER[@]|@APKSIGNER@|g" \
+  -e "s|@MKE2FS[@]|@MKE2FS@|g" \
+  -e "s|@MKFSEROFS[@]|@MKFSEROFS@|g" \
+  -e "s|@OPENSSL[@]|@OPENSSL@|g" \
+  -e "s|@ZIP[@]|@ZIP@|g" \
+  -e "s|@UNZIP[@]|@UNZIP@|g" \
+  -e "s|@AWK[@]|@AWK@|g" \
+  -e "s|@SEDINPLACE[@]|@SEDINPLACE@|g" \
+  "$input" >"$output"
+
+if [[ $mode ]]; then
+  chmod "$mode" "$output"
+fi
