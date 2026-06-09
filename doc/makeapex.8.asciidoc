@@ -56,6 +56,10 @@ Options
 	the `PKGDEST` directory, which may default to the current directory. 
 	This allows the built package to be overwritten.
 
+*\--fetch-vndk*::
+	Dynamically download missing VNDK shared libraries and ABI dumps from 
+	android.googlesource.com when the APEXBUILD specifies `vndk=bundled`.
+
 *-g, \--geninteg*::
 	For each source file in the source array of APEXBUILD, download the file
 	if required and generate integrity checks.
