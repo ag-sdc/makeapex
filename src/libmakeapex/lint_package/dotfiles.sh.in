@@ -35,7 +35,7 @@ check_dotfiles() {
 	local shellopts; shellopts=$(shopt -p nullglob)
 	shopt -s nullglob
 
-	for f in "$pkgdir"/.*; do
+	for f in "$pkgdirprefix"/.*; do
 		[[ ${f##*/} == . || ${f##*/} == .. ]] && continue
 		error "$(gettext "Dotfile found in package root '%s'")" "$f"
 		ret=1
