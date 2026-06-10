@@ -7,7 +7,7 @@ pkgdesc="Autonomous Android APEX build system modeled after makepkg"
 arch=('any')
 url="https://github.com/shadichy/makeapex"
 license=('GPL')
-depends=('android-tools' 'android-sdk-build-tools' 'bash' 'coreutils' 'awk' 'sed' 'e2fsprogs' 'erofs-utils' 'zip' 'unzip' 'openssl' 'python' 'binutils' 'gcc' 'android-sdk-build-tools' 'android-platform-29')
+depends=('android-tools' 'android-sdk-build-tools' 'bash' 'coreutils' 'awk' 'sed' 'e2fsprogs' 'erofs-utils' 'zip' 'unzip' 'openssl' 'python' 'binutils' 'gcc' 'android-sdk-build-tools' 'android-platform-29' 'protobuf')
 makedepends=('meson' 'ninja')
 optdepends=(
   # All android-platform-{30..37} packages

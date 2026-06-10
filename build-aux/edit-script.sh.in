@@ -24,6 +24,7 @@ sed \
   -e "s|@ZIP[@]|@ZIP@|g" \
   -e "s|@UNZIP[@]|@UNZIP@|g" \
   -e "s|@AWK[@]|@AWK@|g" \
+  -e "s|@PROTOC[@]|@PROTOC@|g" \
   -e "s|@SEDINPLACE[@]|@SEDINPLACE@|g" \
   "$input" >"$output"
 

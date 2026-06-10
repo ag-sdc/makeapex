@@ -26,3 +26,8 @@ foreach module : libmakeapex_modules
     subdir(module['name'])
   endif
 endforeach
+
+install_data(
+  'resources/apex_manifest.proto',
+  install_dir : join_paths(get_option('datadir'), 'makeapex', 'resources')
+)

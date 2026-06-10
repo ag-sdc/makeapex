@@ -154,11 +154,15 @@ files into the packaging directory, with optional `prepare()`, `build()`, and
 *build() Function*::
 	The optional `build()` function is used to compile and/or adjust the source
 	files in preparation to be installed by the `package()` function.
++
+*NOTE:* When configuring your build (e.g., `./configure`, `meson setup`), you should ALWAYS use the prefix `/apex/$org.$pkgname` or `/apex/$org.$pkgbase` depending on the scope of the package. This ensures native rpaths, hardcoded strings, and directories point to the correct APEX mount.
 
 *package() Function*::
 	The `package()` function is used to install files into the directory that
 	will become the root directory of the built package and is run after all
 	the optional functions listed above.
++
+*NOTE:* Because APEX is mounted at `/apex/com.domain.package`, but packaged relative to `/` in the APEX, you should use a camouflage installation strategy: install into a temporary `DESTDIR` inside `$srcdir` (e.g., `make DESTDIR="$srcdir/tmp" install`), and then copy the exact mounted payload to `$pkgdir` (e.g., `cp -a "$srcdir/tmp/apex/$org.$pkgname/"* "$pkgdir/"`).
 +
 *NOTE:* The `$pkgdir` variable intrinsically represents the APEX mount structure.
 The root of `$pkgdir` maps strictly to the ROOT (`/`) of the APEX mount point.

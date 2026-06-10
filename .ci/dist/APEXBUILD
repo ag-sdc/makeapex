@@ -8,9 +8,10 @@ pkgname=makeapex
 pkgver=1.0.0
 pkgrel=1
 arch=('x86_64')
-api_level=36
+api_level=29
 _x86_64_microarch_level=1
 payload_fs=erofs
+compress_apex=true
 source=("makeapex::git+file://${startdir}/../../")
 md5sums=('SKIP')
 
@@ -18,19 +19,13 @@ provides=('_script_makeapex')
 depends=('_binary_bash' '_binary_coreutils' '_binary_e2fsprogs' '_binary_erofs_utils' '_binary_zip' '_binary_unzip' '_binary_python' '_binary_binutils' '_binary_gcc')
 
 build() {
-  echo "Building makeapex APEX..."
+  cd makeapex
+  meson setup build --prefix="/apex/$org.$pkgname"
+  meson compile -C build
 }
 
 package() {
-  mkdir -p "$pkgdir/bin"
-  mkdir -p "$pkgdir/lib/libmakeapex"
-  
-  # Copy scripts
-  cp "$srcdir/makeapex/src/makeapex.sh" "$pkgdir/bin/makeapex"
-  cp -r "$srcdir/makeapex/src/libmakeapex"/* "$pkgdir/lib/libmakeapex/"
-  cp "$srcdir/makeapex/src/makeapex.conf" "$pkgdir/"
-
-  # Ensure executables
-  chmod +x "$pkgdir/bin/makeapex"
-
+  cd makeapex
+  DESTDIR="$srcdir/tmp" meson install -C build
+  cp -a "$srcdir/tmp/apex/$org.$pkgname/"* "$pkgdir/"
 }

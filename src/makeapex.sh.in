@@ -680,11 +680,13 @@ create_package() {
 	fi
 
 	local fullver; fullver=$(get_full_version)
-	local apex_file="$PKGDEST/${full_pkgname}-${fullver}${PKGEXT:-.apex}"
+	local final_file="$PKGDEST/${full_pkgname}-${fullver}${PKGEXT:-.apex}"
+	local apex_file="${final_file%.capex}.apex"
 	local api=${api_level:-32}	
 	
 	local android_pkgname="${full_pkgname//-/.}"
 	
+	[[ -f $final_file ]] && rm -f "$final_file"
 	[[ -f $apex_file ]] && rm -f "$apex_file"
 
 	# 1. Manifest Compilation
@@ -704,50 +706,42 @@ create_package() {
 		} > AndroidManifest.xml
 	fi
 
-	if [[ -n $custom_manifest_json && -f $custom_manifest_json ]]; then
+	if [[ -n $custom_manifest_pb && -f $custom_manifest_pb ]]; then
+		cp "$custom_manifest_pb" apex_manifest.pb || exit 1
+	elif [[ -n $custom_manifest_json && -f $custom_manifest_json ]]; then
+		msg2 "$(gettext "Warning: custom_manifest_json provided. apex_manifest.pb will not be compiled natively.")"
 		cp "$custom_manifest_json" apex_manifest.json || exit 1
 	else
 		{
-			echo "{"
-			{
-				echo "\"name\": \"$android_pkgname\","
-				echo -n "\"version\": 1"
-				if [[ -f "$pkgdirbase/.provideNativeLibs" ]]; then
-					echo ","
-					echo "\"provideNativeLibs\": ["
-					{
-						local i=0
-						while IFS= read -r line; do
-							if [[ $i -gt 0 ]]; then echo "," ; else echo "" ; fi
-							echo -n "\"$line\""
-							i=$((i+1))
-						done < "$pkgdirbase/.provideNativeLibs"
-						if [[ $i -gt 0 ]]; then echo "" ; fi
-					} | add_tab
-					echo -n "]"
-				fi
-				if [[ -f "$pkgdirbase/.requireNativeLibs" ]]; then
-					echo ","
-					echo "\"requireNativeLibs\": ["
-					{
-						local i=0
-						while IFS= read -r line; do
-							if [[ $i -gt 0 ]]; then echo "," ; else echo "" ; fi
-							echo -n "\"$line\""
-							i=$((i+1))
-						done < "$pkgdirbase/.requireNativeLibs"
-						if [[ $i -gt 0 ]]; then echo "" ; fi
-					} | add_tab
-					echo -n "]"
-				fi
-				if [[ $vndk == "shared" ]]; then
-					echo ","
-					echo "\"useVndkAsDefault\": true"
-				fi
-				echo ""
-			} | add_tab
-			echo "}"
-		} > apex_manifest.json
+			echo "name: \"$android_pkgname\""
+			echo "version: 1"
+			if [[ -f "$pkgdirbase/.provideNativeLibs" ]]; then
+				while IFS= read -r line; do
+					echo "provideNativeLibs: \"$line\""
+				done < "$pkgdirbase/.provideNativeLibs"
+			fi
+			if [[ -f "$pkgdirbase/.requireNativeLibs" ]]; then
+				while IFS= read -r line; do
+					echo "requireNativeLibs: \"$line\""
+				done < "$pkgdirbase/.requireNativeLibs"
+			fi
+			if [[ $vndk == "shared" ]]; then
+				echo "useVndkAsDefault: true"
+			fi
+		} > apex_manifest.pb.txt
+
+		if ! command -v @PROTOC@ &> /dev/null; then
+			error "@PROTOC@ not found in PATH"
+			exit 1
+		fi
+		
+		local makeapex_dir; makeapex_dir="$(dirname "$(realpath "$0")")"
+		local proto_dir="@LIBMAKEAPEXDIR@/resources"
+		if [[ ! -d "$proto_dir" ]]; then
+			proto_dir="$makeapex_dir/libmakeapex/resources"
+		fi
+		
+		@PROTOC@ -I="$proto_dir" --encode=apex.proto.ApexManifest apex_manifest.proto < apex_manifest.pb.txt > apex_manifest.pb || exit 1
 	fi
 
 	local ANDROID_SDK="$ANDROID_HOME"
@@ -823,24 +817,27 @@ create_package() {
 
 	# 4. Packaging
 	msg2 "$(gettext "Packaging APEX...")"
-	@ZIP@ -0 my_apex_unaligned.apex apex_payload.img apex_pubkey apex_manifest.json -j compiled/AndroidManifest.xml >/dev/null || exit 1
+	local manifest_file="apex_manifest.json"
+	[[ -f apex_manifest.pb ]] && manifest_file="apex_manifest.pb"
+
+	@ZIP@ -0 my_apex_unaligned.apex apex_payload.img apex_pubkey "$manifest_file" -j compiled/AndroidManifest.xml >/dev/null || exit 1
 
 	@ZIPALIGN@ -f -v 4096 my_apex_unaligned.apex "$apex_file" >/dev/null || exit 1
 	@APKSIGNER@ sign --key container.pk8 --cert container.x509.pem "$apex_file" || exit 1
 
 	if [[ "${compress_apex:-false}" == "true" ]]; then
 		msg2 "$(gettext "Compressing to CAPEX format...")"
-		local capex_file="${apex_file%.apex}.capex"
-		@ZIP@ -0 "$capex_file" apex_pubkey apex_manifest.json >/dev/null || exit 1
+		@ZIP@ -0 "$final_file" apex_pubkey "$manifest_file" >/dev/null || exit 1
 		mv "$apex_file" original_apex || exit 1
-		@ZIP@ -9 "$capex_file" original_apex >/dev/null || exit 1
+		@ZIP@ -9 "$final_file" original_apex >/dev/null || exit 1
 		rm -f original_apex
+		msg "$(gettext "Finished creating CAPEX: %s")" "$final_file"
+	else
+		msg "$(gettext "Finished creating APEX: %s")" "$apex_file"
 	fi
 
-	rm -f temp.apk my_apex_unaligned.apex apex_payload.img
+	rm -f temp.apk my_apex_unaligned.apex apex_payload.img apex_manifest.pb.txt
 	rm -rf compiled
-
-	msg "$(gettext "Finished creating APEX: %s")" "$apex_file"
 }
 
 create_debug_package() {
@@ -1455,6 +1452,9 @@ fi
 
 pkgbase=${pkgbase:-${pkgname[0]}}
 
+if [[ "${compress_apex:-false}" == "true" ]]; then
+	PKGEXT=".capex"
+fi
 # check the APEXBUILD for some basic requirements
 if (( MAKEAPEX_LINT_APEXBUILD != 0 )); then
 	lint_apexbuild || exit "$E_APEXBUILD_ERROR"

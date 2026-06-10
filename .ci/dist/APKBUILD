@@ -9,8 +9,8 @@ pkgdesc="Autonomous Android APEX build system modeled after makepkg"
 url="https://github.com/shadichy/makeapex"
 arch="noarch"
 license="GPL"
-depends="bash coreutils awk sed e2fsprogs erofs-utils zip unzip openssl python3 binutils gcc"
-makedepends=""
+depends="bash coreutils awk sed e2fsprogs erofs-utils zip unzip openssl python3 binutils gcc android-tools protobuf"
+makedepends="meson ninja"
 source="makeapex::git+file://${startdir}/../../"
 
 build() {
