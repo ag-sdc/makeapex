@@ -161,9 +161,9 @@ files into the packaging directory, with optional `prepare()`, `build()`, and
 	the optional functions listed above.
 +
 *NOTE:* The `$pkgdir` variable intrinsically represents the APEX mount structure.
-The root of `$pkgdir` maps strictly to `/vendor` within the final Android system
-unless specifically patched. Therefore, running `mkdir -p "$pkgdir/bin"`
-translates directly to `/vendor/bin/` upon boot!
+The root of `$pkgdir` maps strictly to the ROOT (`/`) of the APEX mount point.
+For example, running `mkdir -p "$pkgdir/bin"` translates directly to `/bin/`
+on the APEX mount upon boot! Do NOT install into `/vendor/` manually unless absolutely intended.
 
 
 See Also
