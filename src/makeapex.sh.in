@@ -1106,8 +1106,8 @@ run_single_packaging() {
 		# shellcheck disable=SC2128
 		pkgdir="$pkgdirbase/$pkgname"
 	fi
-	pkgnamedir="$pkgdirbase/$pkgname"
-	pkgdirprefix="$pkgdir/apex/$org.${pkgname//-/.}"
+	pkgnamedir="$pkgdirbase/$1"
+	pkgdirprefix="$pkgdir/apex/$org.${1//-/.}"
 	mkdir -p "$pkgnamedir" "$pkgdirprefix"
 	if [[ -n $1 ]] || ((PKGFUNC)); then
 		run_package "$1"
