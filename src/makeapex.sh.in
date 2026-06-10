@@ -832,7 +832,7 @@ create_package() {
 	local manifest_file="$pkgnamedir/apex_manifest.json"
 	[[ -f "$pkgnamedir/apex_manifest.pb" ]] && manifest_file="$pkgnamedir/apex_manifest.pb"
 
-	@ZIP@ -0 "$pkgnamedir/my_apex_unaligned.apex" "$pkgnamedir/apex_payload.img" "$pkgdirbase/apex_pubkey" "$manifest_file" -j "$pkgnamedir/compiled/$pkgnamedir/AndroidManifest.xml" >/dev/null || exit 1
+	@ZIP@ -0 "$pkgnamedir/my_apex_unaligned.apex" "$pkgnamedir/apex_payload.img" "$pkgdirbase/apex_pubkey" "$manifest_file" -j "$pkgnamedir/compiled/AndroidManifest.xml" >/dev/null || exit 1
 
 	@ZIPALIGN@ -f -v 4096 "$pkgnamedir/my_apex_unaligned.apex" "$apex_file" >/dev/null || exit 1
 	@APKSIGNER@ sign --key "$pkgdirbase/container.pk8" --cert "$pkgdirbase/container.x509.pem" "$apex_file" || exit 1
