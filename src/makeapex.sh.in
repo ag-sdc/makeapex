@@ -784,7 +784,7 @@ create_package() {
 	fi
 	@AAPT2@ link --manifest "$pkgnamedir/AndroidManifest.xml" -o "$pkgnamedir/temp.apk" -I "$ANDROID_JAR" || exit 1
 	mkdir -p "$pkgnamedir/compiled"
-	@UNZIP@ -o "$pkgnamedir/temp.apk" "$pkgnamedir/AndroidManifest.xml" -d "$pkgnamedir/compiled" >/dev/null || exit 1
+	@UNZIP@ -o "$pkgnamedir/temp.apk" AndroidManifest.xml -d "$pkgnamedir/compiled" >/dev/null || exit 1
 
 	# 2. Key Management
 	msg2 "$(gettext "Preparing keys...")"
