@@ -23,7 +23,7 @@
 [[ -n "$LIBMAKEAPEX_LINT_CONFIG_SH" ]] && return
 LIBMAKEAPEX_LINT_CONFIG_SH=1
 
-MAKEAPEX_LIBRARY=${MAKEAPEX_LIBRARY:-'/usr/share/makeapex'}
+MAKEAPEX_LIBRARY=${MAKEAPEX_LIBRARY:-"@libmakeapexdir@"}
 
 source "$MAKEAPEX_LIBRARY/util/message.sh"
 source "$MAKEAPEX_LIBRARY/util/util.sh"

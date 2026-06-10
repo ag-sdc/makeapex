@@ -680,7 +680,7 @@ create_package() {
 	fi
 
 	local fullver; fullver=$(get_full_version)
-	local final_file="$PKGDEST/${full_pkgname}-${fullver}${PKGEXT:-.apex}"
+	local final_file="$PKGDEST/${full_pkgname}${PKGEXT:-.apex}"
 	local apex_file="${final_file%.capex}.apex"
 	local api=${api_level:-32}	
 	
@@ -700,7 +700,17 @@ create_package() {
 			echo "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\" package=\"$android_pkgname\" android:versionCode=\"1\" android:versionName=\"$fullver\">"
 			{
 				echo "<uses-sdk android:minSdkVersion=\"${api}\" android:targetSdkVersion=\"${api}\"/>"
-				echo "<application android:extractNativeLibs=\"false\" android:hasCode=\"false\" />"
+				echo "<application android:extractNativeLibs=\"false\" android:hasCode=\"false\">"
+				{
+					echo "<meta-data android:name=\"org\" android:value=\"${org//\"/&quot;}\" />"
+					echo "<meta-data android:name=\"arch\" android:value=\"${arch[0]}\" />"
+					echo "<meta-data android:name=\"pkgdesc\" android:value=\"${pkgdesc//\"/&quot;}\" />"
+					echo "<meta-data android:name=\"url\" android:value=\"${url//\"/&quot;}\" />"
+					echo "<meta-data android:name=\"packager\" android:value=\"${PACKAGER//\"/&quot;}\" />"
+					echo "<meta-data android:name=\"license\" android:value=\"${license[*]}\" />"
+					echo "<meta-data android:name=\"builddate\" android:value=\"${SOURCE_DATE_EPOCH}\" />"
+				} | add_tab
+				echo "</application>"
 			} | add_tab
 			echo "</manifest>"
 		} > AndroidManifest.xml
@@ -736,7 +746,7 @@ create_package() {
 		fi
 		
 		local makeapex_dir; makeapex_dir="$(dirname "$(realpath "$0")")"
-		local proto_dir="@LIBMAKEAPEXDIR@/resources"
+		local proto_dir="$MAKEAPEX_LIBRARY/resources"
 		if [[ ! -d "$proto_dir" ]]; then
 			proto_dir="$makeapex_dir/libmakeapex/resources"
 		fi
@@ -849,7 +859,7 @@ create_debug_package() {
 	local pkgdir="$pkgdirbase/$pkgbase-@DEBUGSUFFIX@"
 
 	# check if we have any debug symbols to package
-	if dir_is_empty "$pkgdir/usr/lib/debug"; then
+	if dir_is_empty "$pkgdir/lib/debug"; then
 		return 0
 	fi
 
