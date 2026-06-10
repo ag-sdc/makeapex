@@ -34,23 +34,13 @@ get_dummy_suffixes() {
 
 gen_libdummy() {
 	local base_name="$1"
-	for sfx in "${dummy_suffixes[@]}"; do
-		local dummy_name="libdummy${base_name}${sfx}.so"
-		msg2 "$(gettext "Generating virtual dependency library: $dummy_name")"
-		mkdir -p "$pkgdir/lib"
-		echo 'void dummy(){}' | gcc -shared -xc - -o "$pkgdir/lib/$dummy_name"
-		prov_libs+=("$dummy_name")
-	done
+	prov_libs+=("libdummy${base_name}.so")
 }
 
 gen_provides() {
 	for p in "${provides[@]}"; do
 		if [[ "$p" == *.so* ]]; then
 			prov_libs+=("$p")
-			for sfx in "${dummy_suffixes[@]}"; do
-				if [[ -z "$sfx" ]]; then continue; fi
-				prov_libs+=("${p/.so/$sfx.so}")
-			done
 		elif [[ "$p" == _* ]]; then
 			gen_libdummy "${p//_/-}"
 		fi
@@ -74,30 +64,7 @@ parse_depends() {
 	done
 }
 
-link_march_lib() {
-	local target="$1"
-	local link_name="$2"
-	local link_dir="$3"
-
-	local is_suffixed=0
-	for sfx in "${dummy_suffixes[@]}"; do
-		if [[ -n "$sfx" ]] && [[ "$link_name" == *"$sfx.so"* ]]; then
-			is_suffixed=1
-			break
-		fi
-	done
-
-	if [[ $is_suffixed -eq 0 ]]; then
-		for sfx in "${dummy_suffixes[@]}"; do
-			if [[ -z "$sfx" ]]; then continue; fi
-			local sfx_name="${link_name/.so/$sfx.so}"
-			ln -sf "$target" "$link_dir/$sfx_name"
-			prov_libs+=("$sfx_name")
-		done
-	fi
-}
-
-parse_dump_object_deps() {
+parse_dump_object() {
 	while IFS= read -rd '' binary; do
 		if ! LC_ALL=C readelf -h "$binary" 2>/dev/null | grep -q 'ELF'; then
 			continue
@@ -107,15 +74,10 @@ parse_dump_object_deps() {
 		soname=$(LC_ALL=C readelf -d "$binary" 2>/dev/null | grep 'SONAME' | sed -E 's/.*\[([^]]+)\].*/\1/')
 		if [[ -n "$soname" ]]; then
 			prov_libs+=("$soname")
-			local bin_dir
-			bin_dir=$(dirname "$binary")
-			local bin_name
-			bin_name=$(basename "$binary")
-			link_march_lib "$bin_name" "$soname" "$bin_dir"
 		else
 			local bin_name
 			bin_name=$(basename "$binary")
-			gen_libdummy "${bin_name//_/-}"
+			gen_libdummy "_binary_${bin_name//_/-}"
 		fi
 
 		while IFS= read -r n; do
@@ -123,22 +85,19 @@ parse_dump_object_deps() {
 				req_libs+=("$n")
 			fi
 		done < <(LC_ALL=C readelf -d "$binary" 2>/dev/null | grep 'NEEDED' | sed -E 's/.*\[([^]]+)\].*/\1/')
-	done < <(find "$pkgdir" -type f -perm -u+w -print0 2>/dev/null)
+	done < <(find "$pkgdirprefix" -type f -perm -u+w -print0 2>/dev/null)
 
 	while IFS= read -rd '' symlink; do
 		local symlink_name
 		symlink_name=$(basename "$symlink")
 		if [[ "$symlink_name" == *.so* ]]; then
 			prov_libs+=("$symlink_name")
-			local sym_dir
-			sym_dir=$(dirname "$symlink")
-			link_march_lib "$symlink_name" "$symlink_name" "$sym_dir"
 		fi
-	done < <(find "$pkgdir" -type l -print0 2>/dev/null)
+	done < <(find "$pkgdirprefix" -type l -print0 2>/dev/null)
 }
 
 parse_shared_res() {
-	local share_dir="$pkgdir/share"
+	local share_dir="$pkgdirprefix/share"
 	if [[ ! -d "$share_dir" ]]; then
 		return
 	fi
@@ -177,7 +136,7 @@ parse_shared_res() {
 			continue
 		fi
 
-		gen_libdummy "${resource_name//_/-}"
+		gen_libdummy "_shared_${resource_name//_/-}"
 	done
 }
 
@@ -206,8 +165,8 @@ write_linker_config() {
 		done < <(printf "%s\n" "${req_libs[@]}" | sort -u)
 	fi
 
-	mkdir -p "$pkgdir/etc"
-	local linker_config="$pkgdir/etc/linker.config.json"
+	mkdir -p "$pkgdirprefix/etc"
+	local linker_config="$pkgdirprefix/etc/linker.config.json"
 
 	{
 		echo "{"
@@ -251,13 +210,39 @@ write_linker_config() {
 }
 
 write_native_libs() {
-	rm -f "$pkgdirbase/.provideNativeLibs" "$pkgdirbase/.requireNativeLibs"
+	rm -f "$pkgnamedir/.provideNativeLibs" "$pkgnamedir/.requireNativeLibs"
 	if [ ${#unique_prov[@]} -gt 0 ]; then
-		printf "%s\n" "${unique_prov[@]}" >"$pkgdirbase/.provideNativeLibs"
+		printf "%s\n" "${unique_prov[@]}" >"$pkgnamedir/.provideNativeLibs"
 	fi
 	if [ ${#unique_req[@]} -gt 0 ]; then
-		printf "%s\n" "${unique_req[@]}" >"$pkgdirbase/.requireNativeLibs"
+		printf "%s\n" "${unique_req[@]}" >"$pkgnamedir/.requireNativeLibs"
 	fi
+}
+
+gen_march_symlinks() {
+	local current_prov=("${prov_libs[@]}")
+	for p in "${current_prov[@]}"; do
+		if [[ "$p" == *.so* ]]; then
+			local link_dir="$pkgdirprefix/lib"
+			mkdir -p "$link_dir"
+			local is_suffixed=0
+			for sfx in "${dummy_suffixes[@]}"; do
+				if [[ -n "$sfx" ]] && [[ "$p" == *"$sfx.so"* ]]; then
+					is_suffixed=1
+					break
+				fi
+			done
+
+			if [[ $is_suffixed -eq 0 ]]; then
+				for sfx in "${dummy_suffixes[@]}"; do
+					if [[ -z "$sfx" ]]; then continue; fi
+					local sfx_name="${p/.so/$sfx.so}"
+					ln -sf "$p" "$link_dir/$sfx_name"
+					prov_libs+=("$sfx_name")
+				done
+			fi
+		fi
+	done
 }
 
 tidy_linkerconfig() {
@@ -267,11 +252,18 @@ tidy_linkerconfig() {
 	local prov_libs=()
 	local dummy_suffixes=()
 
-	get_dummy_suffixes
-	gen_provides
-	parse_dump_object_deps
-	parse_shared_res
+	if [[ ! -f "$pkgdirprefix/lib/_libdummy.so" ]]; then
+		mkdir -p "$pkgdirprefix/lib"
+		echo 'void dummy(void){}' | ${CC:-gcc} -shared -xc - -o "$pkgdirprefix/lib/_libdummy.so"
+	fi
+
 	parse_depends
+	parse_dump_object
+	parse_shared_res
+	gen_provides
+
+	get_dummy_suffixes
+	gen_march_symlinks
 
 	write_linker_config
 }
