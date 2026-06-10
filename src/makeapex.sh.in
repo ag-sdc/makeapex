@@ -707,7 +707,10 @@ create_package() {
 				echo "<application android:extractNativeLibs=\"false\" android:hasCode=\"false\">"
 				{
 					echo "<meta-data android:name=\"org\" android:value=\"${org//\"/&quot;}\" />"
-					echo "<meta-data android:name=\"arch\" android:value=\"${arch[0]}\" />"
+					echo "<meta-data android:name=\"arch\" android:value=\"${pkgarch}\" />"
+					if microarch_is_not_lowest; then
+						echo "<meta-data android:name=\"${pkgarch}_micro_architecture_level\" android:value=\"$(microarch_level)\" />"
+					fi
 					echo "<meta-data android:name=\"pkgdesc\" android:value=\"${pkgdesc//\"/&quot;}\" />"
 					echo "<meta-data android:name=\"url\" android:value=\"${url//\"/&quot;}\" />"
 					echo "<meta-data android:name=\"packager\" android:value=\"${PACKAGER//\"/&quot;}\" />"

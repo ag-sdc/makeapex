@@ -6,6 +6,7 @@ sources = [
   'dirsize.sh.in',
   'error.sh.in',
   'message.sh.in',
+  'microarch.sh.in',
   'option.sh.in',
   'parseopts.sh.in',
   'apexbuild.sh.in',

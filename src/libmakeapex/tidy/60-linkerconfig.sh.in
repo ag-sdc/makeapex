@@ -16,20 +16,10 @@ tidy_modify+=('tidy_linkerconfig')
 
 get_dummy_suffixes() {
 	dummy_suffixes=("")
-	if [[ " ${arch[*]} " =~ " x86_64 " ]] || [[ "$CARCH" == "x86_64" ]]; then
-		local lvl=${_x86_64_microarch_level:-2}
-		local i
-		for ((i = 2; i <= lvl; i++)); do
-			dummy_suffixes+=("-x86_64-v${i}")
-		done
-	elif [[ " ${arch[*]} " =~ " aarch64 " ]] || [[ "$CARCH" == "aarch64" ]]; then
-		local lvl=${_aarch64_microarch_level:-8.2}
-		local current="8.1"
-		while awk -v c="$current" -v max="$lvl" 'BEGIN { exit !(c <= max) }'; do
-			dummy_suffixes+=("-aarch64-v${current//./_}")
-			current=$(awk -v c="$current" 'BEGIN { printf "%.1f", c + 0.1 }')
-		done
-	fi
+	local lvl
+	for lvl in $(microarch_from_lowest); do
+		dummy_suffixes+=("-${pkgarch}-v${lvl//./_}")
+	done
 }
 
 gen_libdummy() {

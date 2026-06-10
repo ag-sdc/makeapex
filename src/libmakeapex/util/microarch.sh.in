@@ -1,0 +1,77 @@
+#!/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090,SC2015
+#
+#   compress.sh - functions to compress archives in a uniform manner
+#
+#   Copyright (c) 2026 by Bui Gia Vien <shadichy@blisslabs.org>
+#
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation; either version 2 of the License, or
+#   (at your option) any later version.
+#
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
+#
+#   You should have received a copy of the GNU General Public License
+#   along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+[[ -n "$LIBMAKEAPEX_UTIL_MICROARCH_SH" ]] && return
+LIBMAKEAPEX_UTIL_MICROARCH_SH=1
+
+MAKEAPEX_LIBRARY=${MAKEAPEX_LIBRARY:-"@libmakeapexdir@"}
+
+__microarch_init=
+_microarch_level=
+declare -a _microarch_from_lowest=()
+
+_cmp_int() { [[ $1 -gt $2 ]]; }
+_cmp_float() { awk -v a="$1" -v b="$2" 'BEGIN { exit !(a > b) }'; }
+_cmp_auto() { [[ $1 == *.* ]] && _cmp_float "$@" || _cmp_int "$@"; }
+
+_add_int() { echo "$(( $1 + $2 ))"; }
+_add_float() { awk -v a="$1" -v b="$2" 'BEGIN { printf "%.1f", a + b }'; }
+_add_auto() { [[ $1 == *.* ]] && _add_float "$@" || _add_int "$@"; }
+
+_microarch_init() {
+	set -x
+	local lvl min_lvl step
+	case "$pkgarch" in
+	x86_64) lvl=${_x86_64_microarch_level:-2}; min_lvl=1; step=1 ;;
+	aarch64) lvl=${_aarch64_microarch_level:-8.2}; min_lvl=8.0; step=0.1 ;;
+	esac
+
+	if _cmp_auto "$lvl" "$min_lvl"; then
+		_microarch_level=$lvl
+		local current
+		current=$(_add_auto "$min_lvl" "$step")
+		while _cmp_auto "$lvl" "$current"; do
+			_microarch_from_lowest+=("$current")
+			current=$(_add_auto "$current" "$step")
+		done
+		_microarch_from_lowest+=("$lvl")
+	fi
+
+	export __microarch_init=1
+}
+
+microarch_level() {
+	[[ -z "$__microarch_init" ]] && _microarch_init
+	echo "$_microarch_level"
+}
+
+microarch_is_not_lowest() {
+	[[ -z "$__microarch_init" ]] && _microarch_init
+	[[ -n "$_microarch_level" ]]
+}
+
+microarch_from_lowest() {
+	[[ -z "$__microarch_init" ]] && _microarch_init
+	local i
+	for i in "${_microarch_from_lowest[@]}"; do
+		printf '%s ' "$i"
+	done
+}
