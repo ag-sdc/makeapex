@@ -190,7 +190,7 @@ write_linker_config() {
 		echo "{"
 		{
 			if [ ${#unique_prov[@]} -gt 0 ]; then
-				echo "\"provideLibs\": ["
+				echo -n "\"provideLibs\": ["
 				{
 					local i=0
 					for p in "${unique_prov[@]}"; do
@@ -206,7 +206,7 @@ write_linker_config() {
 				fi
 			fi
 			if [ ${#unique_req[@]} -gt 0 ]; then
-				echo "\"requireLibs\": ["
+				echo -n "\"requireLibs\": ["
 				{
 					i=0
 					for r in "${unique_req[@]}"; do
