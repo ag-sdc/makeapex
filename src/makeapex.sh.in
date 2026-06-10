@@ -684,11 +684,11 @@ create_package() {
 
 	local fullver
 	fullver=$(get_full_version)
-	local final_file="$PKGDEST/${full_pkgname}${PKGEXT:-.apex}"
+	local android_pkgname="${full_pkgname//-/.}"
+	local final_file="$PKGDEST/${android_pkgname}${PKGEXT:-.apex}"
 	local apex_file="${final_file%.capex}.apex"
 	local api=${api_level:-32}
 
-	local android_pkgname="${full_pkgname//-/.}"
 
 	[[ -f $final_file ]] && rm -f "$final_file"
 	[[ -f $apex_file ]] && rm -f "$apex_file"
