@@ -78,7 +78,6 @@ REPRODUCIBLE=0
 RMDEPS=0
 SKIPCHECKSUMS=0
 SKIPPGPCHECK=0
-FETCH_VNDK=0
 SIGNPKG=''
 SPLITPKG=0
 SOURCEONLY=0
@@ -1204,7 +1203,6 @@ usage() {
 	printf -- "$(gettext "  --skipinteg      Do not perform any verification checks on source files")\n"
 	# shellcheck disable=SC2059
 	printf -- "$(gettext "  --skippgpcheck   Do not verify source files with PGP signatures")\n"
-	printf -- "$(gettext "  --fetch-vndk     Dynamically download VNDK prebuilts if not found locally")\n"
 	# shellcheck disable=SC2059
 	printf -- "$(gettext "  --verifysource   Download source files (if needed) and perform integrity checks")\n"
 	echo
@@ -1256,7 +1254,7 @@ OPT_LONG=('allsource' 'check' 'clean' 'cleanbuild' 'config:' 'dir:' 'force' 'gen
           'help' 'holdver' 'ignorearch' 'install' 'key:' 'log' 'noarchive' 'nobuild'
           'nocolor' 'nocheck' 'nodeps' 'noextract' 'noprepare' 'nosign' 'packagelist'
           'printsrcinfo' 'repackage' 'rmdeps' 'sign' 'skipchecksums' 'skipinteg'
-          'skippgpcheck' 'source' 'syncdeps' 'verifysource' 'version' 'fetch-vndk')
+          'skippgpcheck' 'source' 'syncdeps' 'verifysource' 'version')
 
 # Pacman Options
 OPT_LONG+=('asdeps' 'noconfirm' 'needed' 'noprogressbar')
@@ -1309,7 +1307,6 @@ while true; do
 		--skipchecksums)  SKIPCHECKSUMS=1 ;;
 		--skipinteg)      SKIPCHECKSUMS=1; SKIPPGPCHECK=1 ;;
 		--skippgpcheck)   SKIPPGPCHECK=1;;
-		--fetch-vndk)     FETCH_VNDK=1 ;;
 		-s|--syncdeps)    DEP_BIN=1 ;;
 		-S|--source)      BUILDPKG=0 SOURCEONLY=1 ;;
 		--verifysource)   BUILDPKG=0 VERIFYSOURCE=1 ;;

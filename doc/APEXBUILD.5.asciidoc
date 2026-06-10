@@ -56,7 +56,7 @@ This will prevent any possible name clashes with internal makeapex variables.
 	Defines how dynamic libraries and dependencies are handled against the Android VNDK. Valid options are:
 	- `off` (default): Dynamic linking against system. Populates `requireNativeLibs` based on ELF tracing.
 	- `static`: Injects `-static` into `LDFLAGS`, `CFLAGS`, and `CXXFLAGS` during build.
-	- `bundled`: Copies locally available or dynamically fetched (`--fetch-vndk`) shared libraries directly into `$pkgdir/lib`.
+	- `bundled`: Copies locally available shared libraries directly into `$pkgdir/lib`.
 	- `shared`: Dynamic linking probing system VNDK (Android 14 and lower). Automatically injects `useVndkAsDefault: true` into the manifest.
 
 *_x86_64_microarch_level* / *_aarch64_microarch_level*::
