@@ -34,17 +34,9 @@ get_dummy_suffixes() {
 
 gen_libdummy() {
 	local base_name="$1"
-	prov_libs+=("libdummy${base_name}.so")
-}
-
-gen_provides() {
-	for p in "${provides[@]}"; do
-		if [[ "$p" == *.so* ]]; then
-			prov_libs+=("$p")
-		elif [[ "$p" == _* ]]; then
-			gen_libdummy "${p//_/-}"
-		fi
-	done
+	local dummy_name="libdummy${base_name}.so"
+	prov_libs+=("$dummy_name")
+	ln -s "$dummy_lib_name" "$pkgdirprefix/lib/$dummy_name"
 }
 
 parse_depends() {
@@ -140,6 +132,42 @@ parse_shared_res() {
 	done
 }
 
+gen_provides() {
+	for p in "${provides[@]}"; do
+		if [[ "$p" == *.so* ]]; then
+			prov_libs+=("$p")
+		elif [[ "$p" == _* ]]; then
+			gen_libdummy "${p//_/-}"
+		fi
+	done
+}
+
+gen_march_symlinks() {
+	local current_prov=("${prov_libs[@]}")
+	for p in "${current_prov[@]}"; do
+		if [[ "$p" == *.so* ]]; then
+			local link_dir="$pkgdirprefix/lib"
+			mkdir -p "$link_dir"
+			local is_suffixed=0
+			for sfx in "${dummy_suffixes[@]}"; do
+				if [[ -n "$sfx" ]] && [[ "$p" == *"$sfx.so"* ]]; then
+					is_suffixed=1
+					break
+				fi
+			done
+
+			if [[ $is_suffixed -eq 0 ]]; then
+				for sfx in "${dummy_suffixes[@]}"; do
+					if [[ -z "$sfx" ]]; then continue; fi
+					local sfx_name="${p/.so/$sfx.so}"
+					ln -sf "$p" "$link_dir/$sfx_name"
+					prov_libs+=("$sfx_name")
+				done
+			fi
+		fi
+	done
+}
+
 write_linker_config() {
 	local unique_req=()
 	local unique_prov=()
@@ -219,43 +247,14 @@ write_native_libs() {
 	fi
 }
 
-gen_march_symlinks() {
-	local current_prov=("${prov_libs[@]}")
-	for p in "${current_prov[@]}"; do
-		if [[ "$p" == *.so* ]]; then
-			local link_dir="$pkgdirprefix/lib"
-			mkdir -p "$link_dir"
-			local is_suffixed=0
-			for sfx in "${dummy_suffixes[@]}"; do
-				if [[ -n "$sfx" ]] && [[ "$p" == *"$sfx.so"* ]]; then
-					is_suffixed=1
-					break
-				fi
-			done
-
-			if [[ $is_suffixed -eq 0 ]]; then
-				for sfx in "${dummy_suffixes[@]}"; do
-					if [[ -z "$sfx" ]]; then continue; fi
-					local sfx_name="${p/.so/$sfx.so}"
-					ln -sf "$p" "$link_dir/$sfx_name"
-					prov_libs+=("$sfx_name")
-				done
-			fi
-		fi
-	done
-}
-
 tidy_linkerconfig() {
 	msg2 "$(gettext "Generating APEX linker configuration and dependencies...")"
 
 	local req_libs=()
 	local prov_libs=()
 	local dummy_suffixes=()
-
-	if [[ ! -f "$pkgdirprefix/lib/_libdummy.so" ]]; then
-		mkdir -p "$pkgdirprefix/lib"
-		echo 'void dummy(void){}' | ${CC:-gcc} -shared -xc - -o "$pkgdirprefix/lib/_libdummy.so"
-	fi
+	local dummy_lib_name=_libdummy.so
+	mkdir -p "$pkgdirprefix/lib"
 
 	parse_depends
 	parse_dump_object
@@ -264,6 +263,11 @@ tidy_linkerconfig() {
 
 	get_dummy_suffixes
 	gen_march_symlinks
+
+	local dummy_lib="$pkgdirprefix/lib/$dummy_lib_name"
+	if [[ ! -f "$dummy_lib" ]]; then
+		echo 'void dummy(void){}' | ${CC:-gcc} -shared -xc - -o "$dummy_lib"
+	fi
 
 	write_linker_config
 }
