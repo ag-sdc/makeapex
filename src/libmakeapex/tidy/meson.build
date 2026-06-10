@@ -7,6 +7,7 @@ sources = [
   '50-purge.sh.in',
   '50-strip.sh.in',
   '50-zipman.sh.in',
+  '60-linkerconfig.sh.in',
   '90-emptydirs.sh.in',
 ]
 
