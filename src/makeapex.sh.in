@@ -280,66 +280,67 @@ check_deps() {
 	fi
 
 	if ((!is_bionic)); then
-		# Print to stderr so it doesn't get captured as a missing dependency string
-		msg2 "$(gettext "Skipping dependency checks on non-Bionic (non-Android) platform.")" >&2
-		return 0
+		if ! command -v apex-install >/dev/null 2>&1; then
+			# Print to stderr so it doesn't get captured as a missing dependency string
+			msg2 "$(gettext "Skipping dependency checks on non-Bionic (non-Android) platform.")" >&2
+			return 0
+		fi
+		msg2 "$(gettext "apex-install is available. Using it for dependency checks on non-Bionic platform.")" >&2
 	fi
 
-	if ((is_bionic)); then
-		local missing=()
-		for dep in "$@"; do
-			local target_soname="$dep"
-			if [[ "$dep" == _* ]]; then
-				if [[ "$dep" =~ ^_(.+)-([^-]+)-([^-]+)$ ]]; then
-					local soname="${BASH_REMATCH[1]}"
-					local d_arch="${BASH_REMATCH[2]}"
-					local d_march="${BASH_REMATCH[3]}"
-					target_soname="libdummy-${soname//_/-}-${d_arch}-${d_march}.so"
-				else
-					target_soname="libdummy${dep//_/-}.so"
-				fi
-			elif [[ "$dep" != *.so* ]]; then
-				# If it doesn't end in .so and isn't virtual, check PATH (useful for makedepends)
-				if command -v "$dep" >/dev/null 2>&1; then
-					continue
-				fi
-				target_soname="$dep.so"
+	local missing=()
+	for dep in "$@"; do
+		local target_soname="$dep"
+		if [[ "$dep" == _* ]]; then
+			if [[ "$dep" =~ ^_(.+)-([^-]+)-([^-]+)$ ]]; then
+				local soname="${BASH_REMATCH[1]}"
+				local d_arch="${BASH_REMATCH[2]}"
+				local d_march="${BASH_REMATCH[3]}"
+				target_soname="libdummy-${soname//_/-}-${d_arch}-${d_march}.so"
+			else
+				target_soname="libdummy${dep//_/-}.so"
 			fi
+		elif [[ "$dep" != *.so* ]]; then
+			# If it doesn't end in .so and isn't virtual, check PATH (useful for makedepends)
+			if command -v "$dep" >/dev/null 2>&1; then
+				continue
+			fi
+			target_soname="$dep.so"
+		fi
 
-			local found=0
-			local search_paths=(
-				"/system/lib64" "/system/lib"
-				"/system_ext/lib64" "/system_ext/lib"
-				"/product/lib64" "/product/lib"
-				"/apex/com.android.runtime/lib64/bionic" "/apex/com.android.runtime/lib/bionic"
-			)
-			for p in "${search_paths[@]}"; do
-				if [[ -e "$p/$target_soname" ]]; then
+		local found=0
+		local search_paths=(
+			"/system/lib64" "/system/lib"
+			"/system_ext/lib64" "/system_ext/lib"
+			"/product/lib64" "/product/lib"
+			"/apex/com.android.runtime/lib64/bionic" "/apex/com.android.runtime/lib/bionic"
+		)
+		for p in "${search_paths[@]}"; do
+			if [[ -e "$p/$target_soname" ]]; then
+				found=1
+				break
+			fi
+		done
+
+		if ((!found)); then
+			for apex_dir in /apex/*/lib64 /apex/*/lib; do
+				if [[ -e "$apex_dir/$target_soname" ]]; then
 					found=1
 					break
 				fi
 			done
-
-			if ((!found)); then
-				for apex_dir in /apex/*/lib64 /apex/*/lib; do
-					if [[ -e "$apex_dir/$target_soname" ]]; then
-						found=1
-						break
-					fi
-				done
-			fi
-
-			if ((!found)); then
-				missing+=("$dep")
-			fi
-		done
-
-		if ((${#missing[@]} > 0)); then
-			printf "%s\n" "${missing[@]}"
-			return 127
 		fi
-		return 0
+
+		if ((!found)); then
+			missing+=("$dep")
+		fi
+	done
+
+	if ((${#missing[@]} > 0)); then
+		printf "%s\n" "${missing[@]}"
+		return 127
 	fi
+	return 0
 }
 
 handle_deps() {
@@ -355,12 +356,27 @@ handle_deps() {
 	fi
 
 	if ((DEP_BIN)); then
-		# install missing deps from binary packages (using pacman -S)
 		msg "$(gettext "Installing missing dependencies...")"
 
-		if ! run_pacman -S --asdeps "${deplist[@]}"; then
-			error "$(gettext "'%s' failed to install missing dependencies.")" "$PACMAN"
-			return $R_DEPS_MISSING
+		if command -v apex-install >/dev/null 2>&1; then
+			local cmd=("apex-install" "${deplist[@]}")
+			if ((${#PACMAN_AUTH[@]})); then
+				if in_array '%c' "${PACMAN_AUTH[@]}"; then
+					cmd=("${PACMAN_AUTH[@]/\%c/$(printf '%q ' "${cmd[@]}")}")
+				else
+					cmd=("${PACMAN_AUTH[@]}" "${cmd[@]}")
+				fi
+			fi
+			if ! "${cmd[@]}"; then
+				error "$(gettext "'%s' failed to install missing dependencies.")" "apex-install"
+				return $R_DEPS_MISSING
+			fi
+		else
+			# install missing deps from binary packages (using pacman -S)
+			if ! run_pacman -S --asdeps "${deplist[@]}"; then
+				error "$(gettext "'%s' failed to install missing dependencies.")" "$PACMAN"
+				return $R_DEPS_MISSING
+			fi
 		fi
 	fi
 
@@ -688,7 +704,6 @@ create_package() {
 	local final_file="$PKGDEST/${android_pkgname}${PKGEXT:-.apex}"
 	local apex_file="${final_file%.capex}.apex"
 	local api=${api_level:-32}
-
 
 	[[ -f $final_file ]] && rm -f "$final_file"
 	[[ -f $apex_file ]] && rm -f "$apex_file"

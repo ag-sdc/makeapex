@@ -63,11 +63,17 @@ parse_dump_object() {
 		fi
 
 		while IFS= read -r n; do
-			if [[ -n "$n" ]]; then
-				req_libs+=("$n")
+			if [[ -z "$n" ]]; then
+				continue
+			fi
+
+			local local_lib
+			local_lib=$(find "$pkgdirprefix"/lib{,64} -type f -name "$d" -print0 2>/dev/null)
+			if [[ -z "$local_lib" ]]; then
+				req_libs+=("$d")
 			fi
 		done < <(LC_ALL=C readelf -d "$binary" 2>/dev/null | grep 'NEEDED' | sed -E 's/.*\[([^]]+)\].*/\1/')
-	done < <(find "$pkgdirprefix" -type f -perm -u+w -print0 2>/dev/null)
+	done < <(find "$pkgdirprefix"/{bin,lib{,64}} -type f -perm -u+w -print0 2>/dev/null)
 
 	while IFS= read -rd '' symlink; do
 		local symlink_name
@@ -75,7 +81,7 @@ parse_dump_object() {
 		if [[ "$symlink_name" == *.so* ]]; then
 			prov_libs+=("$symlink_name")
 		fi
-	done < <(find "$pkgdirprefix" -type l -print0 2>/dev/null)
+	done < <(find "$pkgdirprefix"/{bin,lib{,64}} -type l -print0 2>/dev/null)
 }
 
 parse_shared_res() {
@@ -94,24 +100,12 @@ parse_shared_res() {
 
 		local skip=1
 		case "$resource_name" in
-		icon*)
-			if [[ "$pkgname" == *icon* ]] || [[ "$pkgbase" == *icon* ]]; then skip=0; fi
-			;;
-		theme*)
-			if [[ "$pkgname" == *theme* ]] || [[ "$pkgbase" == *theme* ]]; then skip=0; fi
-			;;
-		zoneinfo)
-			if [[ "$pkgname" == "tzdata" ]] || [[ "$pkgbase" == "tzdata" ]]; then skip=0; fi
-			;;
-		terminfo)
-			if [[ "$pkgname" =~ ^(lib)?ncursesw?$ ]] || [[ "$pkgbase" =~ ^(lib)?ncursesw?$ ]]; then skip=0; fi
-			;;
-		doc | man | info | background* | wallpaper* | locale | applications | mime | licenses | pkgconfig | aclocal | zsh | bash-completion)
-			skip=1
-			;;
-		*)
-			skip=0
-			;;
+		icon*) if [[ "$package_name" == *icon* ]]; then skip=0; fi ;;
+		theme*) if [[ "$package_name" == *theme* ]]; then skip=0; fi ;;
+		zoneinfo) if [[ "$package_name" == "tzdata" ]]; then skip=0; fi ;;
+		terminfo) if [[ "$package_name" =~ ^(lib)?ncursesw?$ ]]; then skip=0; fi ;;
+		doc | man | info | background* | wallpaper* | locale | applications | mime | licenses | pkgconfig | aclocal | zsh | bash-completion) skip=1 ;;
+		*) skip=0 ;;
 		esac
 
 		if [[ $skip -eq 1 ]]; then
@@ -129,6 +123,37 @@ gen_provides() {
 		elif [[ "$p" == _* ]]; then
 			gen_libdummy "${p//_/-}"
 		fi
+	done
+
+	gen_libdummy "_${package_name//-/_}"
+
+	# Development headers and pkgconfig files
+	if [[ -d "$pkgdirprefix/include" ]]; then
+		local package_base=${pkgbase:-$package_name}
+		gen_libdummy "_headers_${package_base//-/_}"
+		if [[ -d "$pkgdirprefix/lib/pkgconfig" ]]; then
+			gen_libdummy "_pkgconfig_${package_base//-/_}"
+		fi
+	fi
+
+	# Kernel modules
+	find "$pkgdirprefix/lib{,64}/modules" -mindepth 2 -maxdepth 2 -type f -name "vmlinu[xz]" -print0 2>/dev/null | while IFS= read -rd '' kernel; do
+		local kver
+		kver=$(basename "$(dirname "$kernel")")
+		gen_libdummy "_linux_${kver}" # Preserve kernel version
+		if [[ -d "$pkgdirprefix/lib/modules/${kver}/build" ]]; then
+			gen_libdummy "_linuxheaders_${kver}" # Preserve kernel version
+		fi
+	done
+
+	# Firmwares
+	find "$pkgdirprefix/lib{,64}/firmware" -mindepth 1 -maxdepth 1 -print0 2>/dev/null | while IFS= read -rd '' firmware; do
+		local fw_name
+		fw_name=$(basename "$firmware")
+		if [[ -f "$firmware" ]] && file "$firmware" | grep -Iq 'compressed'; then
+			fw_name="${fw_name%.*}"
+		fi
+		gen_libdummy "_firmware_${fw_name}" # Preserve firmware names
 	done
 }
 
@@ -245,6 +270,9 @@ tidy_linkerconfig() {
 	local dummy_suffixes=()
 	local dummy_lib_name=_libdummy.so
 	mkdir -p "$pkgdirprefix/lib"
+
+	local package_name
+	package_name=$(basename "$pkgnamedir")
 
 	parse_depends
 	parse_dump_object
