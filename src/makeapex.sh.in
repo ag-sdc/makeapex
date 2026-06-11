@@ -87,6 +87,7 @@ export ANDROID_HOME=${ANDROID_HOME:-"$HOME/Android/Sdk"}
 MAKEAPEX_LINT_APEXBUILD=${MAKEAPEX_LINT_APEXBUILD:-1}
 
 PACMAN_OPTS=()
+APEX_INSTALL_OPTS=()
 
 shopt -s extglob
 
@@ -359,7 +360,15 @@ handle_deps() {
 		msg "$(gettext "Installing missing dependencies...")"
 
 		if command -v apex-install >/dev/null 2>&1; then
-			local cmd=("apex-install" "${deplist[@]}")
+			local cmd=("apex-install" "${APEX_INSTALL_OPTS[@]}")
+			if [[ -z "$APEX_INSTALL_ARCH_OVERRIDE" && -n "$CARCH" ]]; then
+				cmd+=("--arch=$CARCH")
+			fi
+			if [[ -z "$APEX_INSTALL_MICROARCH_OVERRIDE" ]] && microarch_is_not_lowest; then
+				local formatted_march="v$(microarch_level)"
+				cmd+=("--max-microarch=${formatted_march//./_}")
+			fi
+			cmd+=("${deplist[@]}")
 			if ((${#PACMAN_AUTH[@]})); then
 				if in_array '%c' "${PACMAN_AUTH[@]}"; then
 					cmd=("${PACMAN_AUTH[@]/\%c/$(printf '%q ' "${cmd[@]}")}")
@@ -1249,6 +1258,14 @@ usage() {
 	printf -- "$(gettext "  --noprogressbar  Do not show a progress bar when downloading files")\n"
 	echo
 	# shellcheck disable=SC2059
+	printf -- "$(gettext "These options can be passed to %s:")\n" "apex-install"
+	echo
+	# shellcheck disable=SC2059
+	printf -- "$(gettext "  --arch <arch>            Force architecture (overrides %s)")\n" "\$CARCH"
+	# shellcheck disable=SC2059
+	printf -- "$(gettext "  --max-microarch <level>  Force highest microarchitecture level (overrides internal %s)")\n" "microarch_level"
+	echo
+	# shellcheck disable=SC2059
 	printf -- "$(gettext "If %s is not specified, %s will look for '%s'")\n" "-p" "makeapex" "$BUILDSCRIPT"
 	echo
 }
@@ -1289,6 +1306,9 @@ OPT_LONG=('allsource' 'check' 'clean' 'cleanbuild' 'config:' 'dir:' 'force' 'gen
 # Pacman Options
 OPT_LONG+=('asdeps' 'noconfirm' 'needed' 'noprogressbar')
 
+# apex-install Options
+OPT_LONG+=('arch:' 'max-microarch:')
+
 if ! parseopts "$OPT_SHORT" "${OPT_LONG[@]}" -- "$@"; then
 	exit "$E_INVALID_OPTION"
 fi
@@ -1302,6 +1322,18 @@ while true; do
 	--needed) NEEDED=1 ;;
 	--noconfirm) PACMAN_OPTS+=("--noconfirm") ;;
 	--noprogressbar) PACMAN_OPTS+=("--noprogressbar") ;;
+
+	# apex-install Options
+	--arch)
+		shift
+		APEX_INSTALL_OPTS+=("--arch=$1")
+		APEX_INSTALL_ARCH_OVERRIDE=1
+		;;
+	--max-microarch)
+		shift
+		APEX_INSTALL_OPTS+=("--max-microarch=$1")
+		APEX_INSTALL_MICROARCH_OVERRIDE=1
+		;;
 
 	# Makepkg Options
 	--allsource) BUILDPKG=0 SOURCEONLY=2 ;;
