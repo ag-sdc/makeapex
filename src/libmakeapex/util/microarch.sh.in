@@ -37,7 +37,6 @@ _add_float() { awk -v a="$1" -v b="$2" 'BEGIN { printf "%.1f", a + b }'; }
 _add_auto() { [[ $1 == *.* ]] && _add_float "$@" || _add_int "$@"; }
 
 _microarch_init() {
-	set -x
 	local lvl min_lvl step
 	case "$pkgarch" in
 	x86_64) lvl=${_x86_64_microarch_level:-2}; min_lvl=1; step=1 ;;
