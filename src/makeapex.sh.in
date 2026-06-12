@@ -368,6 +368,9 @@ handle_deps() {
 				local formatted_march="v$(microarch_level)"
 				cmd+=("--max-microarch=${formatted_march//./_}")
 			fi
+			if [[ -z "$APEX_INSTALL_API_LEVEL_OVERRIDE" && -n "${api_level}" ]]; then
+				cmd+=("--api-level=${api_level}")
+			fi
 			cmd+=("${deplist[@]}")
 			if ((${#PACMAN_AUTH[@]})); then
 				if in_array '%c' "${PACMAN_AUTH[@]}"; then
