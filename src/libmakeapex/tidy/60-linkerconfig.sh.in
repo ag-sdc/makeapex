@@ -284,7 +284,7 @@ tidy_linkerconfig() {
 
 	local dummy_lib="$pkgdirprefix/lib/$dummy_lib_name"
 	if [[ ! -f "$dummy_lib" ]]; then
-		echo 'void dummy(void){}' | ${CC:-gcc} -shared -xc - -o "$dummy_lib"
+		echo 'void dummy(void){}' | ${CC:-gcc} -xc -O3 -fPIC -shared -s -ffunction-sections -fdata-sections -Wl,--gc-sections -Wl,--strip-all - -o "$dummy_lib"
 	fi
 
 	write_linker_config
