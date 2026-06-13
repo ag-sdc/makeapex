@@ -416,7 +416,7 @@ resolve_deps() {
 	# Otherwise, the return value will depend on the assignment.
 	local deplist
 	# shellcheck disable=SC2207
-	deplist=($(check_deps "$@")) || exit "$E_INSTALL_DEPS_FAILED"
+	deplist=($(check_deps "$@"))
 	# shellcheck disable=SC2128
 	[[ -z $deplist ]] && return $R_DEPS_SATISFIED
 

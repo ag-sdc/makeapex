@@ -8,3 +8,8 @@ compress_apex="false"
 
 # Build environment options
 BUILDENV=(color check !sign)
+
+#
+# Privilege escalation command
+#
+PACMAN_AUTH=(sudo)

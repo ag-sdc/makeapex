@@ -7,7 +7,7 @@ pkgdesc="Autonomous Android APEX build system modeled after makepkg"
 arch=('any')
 url="https://github.com/shadichy/makeapex"
 license=('GPL')
-depends=('android-tools' 'android-sdk-build-tools' 'bash' 'coreutils' 'awk' 'sed' 'e2fsprogs' 'erofs-utils' 'zip' 'unzip' 'openssl' 'python' 'binutils' 'gcc' 'android-sdk-build-tools' 'android-platform-29' 'protobuf')
+depends=('android-ndk' 'android-tools' 'android-sdk-build-tools' 'bash' 'coreutils' 'awk' 'sed' 'e2fsprogs' 'erofs-utils' 'zip' 'unzip' 'openssl' 'python' 'binutils' 'gcc' 'android-sdk-build-tools' 'android-platform-29' 'protobuf')
 makedepends=('meson' 'ninja')
 optdepends=(
   # All android-platform-{30..37} packages
@@ -19,9 +19,11 @@ optdepends=(
   'android-platform-35: API level 35 support'
   'android-platform-36: API level 36 support'
   'android-platform: Latest API level (37) support'
+  'android-ndk-beta: Latest API level (37) cross-compiling toolchain'
 )
 source=("makeapex::git+file://${startdir}/../../")
 md5sums=('SKIP')
+backup=('etc/makeapex.conf')
 
 build() {
   cd "$srcdir/makeapex"
