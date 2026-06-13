@@ -364,8 +364,9 @@ handle_deps() {
 			if [[ -z "$APEX_INSTALL_ARCH_OVERRIDE" && -n "$CARCH" ]]; then
 				cmd+=("--arch=$CARCH")
 			fi
-			if [[ -z "$APEX_INSTALL_MICROARCH_OVERRIDE" ]] && microarch_is_not_lowest; then
-				local formatted_march="v$(microarch_level)"
+			local dyn_microarch_var="_${pkgarch}_microarch_level"
+			if [[ -z "$APEX_INSTALL_MICROARCH_OVERRIDE" && -n "${!dyn_microarch_var}" ]]; then
+				local formatted_march="v${!dyn_microarch_var}"
 				cmd+=("--max-microarch=${formatted_march//./_}")
 			fi
 			if [[ -z "$APEX_INSTALL_API_LEVEL_OVERRIDE" && -n "${api_level}" ]]; then
