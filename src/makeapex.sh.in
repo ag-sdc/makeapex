@@ -361,8 +361,8 @@ handle_deps() {
 
 		if command -v apex-install >/dev/null 2>&1; then
 			local cmd=("apex-install" "${APEX_INSTALL_OPTS[@]}")
-			if [[ -z "$APEX_INSTALL_ARCH_OVERRIDE" && -n "$CARCH" ]]; then
-				cmd+=("--arch=$CARCH")
+			if [[ -z "$APEX_INSTALL_ARCH_OVERRIDE" && -n "$pkgarch" ]]; then
+				cmd+=("--arch=$pkgarch")
 			fi
 			local dyn_microarch_var="_${pkgarch}_microarch_level"
 			if [[ -z "$APEX_INSTALL_MICROARCH_OVERRIDE" && -n "${!dyn_microarch_var}" ]]; then
