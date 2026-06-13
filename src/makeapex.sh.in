@@ -297,9 +297,9 @@ check_deps() {
 				local soname="${BASH_REMATCH[1]}"
 				local d_arch="${BASH_REMATCH[2]}"
 				local d_march="${BASH_REMATCH[3]}"
-				target_soname="libdummy-${soname//_/-}-${d_arch}-${d_march}.so"
+				target_soname="libdummy_${soname//-/_}-${d_arch}-${d_march}.so"
 			else
-				target_soname="libdummy${dep//_/-}.so"
+				target_soname="libdummy${dep//-/_}.so"
 			fi
 		elif [[ "$dep" != *.so* ]]; then
 			# If it doesn't end in .so and isn't virtual, check PATH (useful for makedepends)
@@ -333,7 +333,7 @@ check_deps() {
 		fi
 
 		if ((!found)); then
-			missing+=("$dep")
+			missing+=("$target_soname")
 		fi
 	done
 
