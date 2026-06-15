@@ -121,7 +121,7 @@ gen_provides() {
 		if [[ "$p" == *.so* ]]; then
 			prov_libs+=("$p")
 		elif [[ "$p" == _* ]]; then
-			gen_libdummy "${p//_/-}"
+			gen_libdummy "${p}"
 		fi
 	done
 
