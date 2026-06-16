@@ -5,35 +5,18 @@
 LIBMAKEAPEX_BUILDENV_APEX_INSTALL_SH=1
 
 buildenv_apex_install() {
-	if ! type -p apex-install >/dev/null; then
-		return 0
-	fi
-
-	local dep apex_name _include _libdir _pkgconfig_path
-	for dep in "${makedepends[@]}"; do
-		apex_name=$("${PACMAN_AUTH[@]}" apex-install --local --name "$dep" 2>/dev/null)
-
-		if [[ -z "$apex_name" ]]; then
-			continue
-		fi
-
-		_include="-I/apex/$apex_name/include"
-		if [[ -d "$_include" ]]; then
-			export CFLAGS="$CFLAGS $_include"
-			export CXXFLAGS="$CXXFLAGS $_include"
-		fi
-
-		for _libdir in lib lib64; do
-			if [[ -d "-L/apex/$apex_name/$_libdir" ]]; then
-				export LDFLAGS="$LDFLAGS -L/apex/$apex_name/$_libdir"
+	if type -p apexm >/dev/null; then
+		for dep in "${makedepends[@]}"; do
+			local apex_name
+			apex_name=$(${PACMAN_AUTH[@]} apexm local --name "$dep" 2>/dev/null)
+			if [[ -n "$apex_name" ]]; then
+				export CFLAGS="$CFLAGS -I/apex/$apex_name/include"
+				export CXXFLAGS="$CXXFLAGS -I/apex/$apex_name/include"
+				export LDFLAGS="$LDFLAGS -L/apex/$apex_name/lib"
+				export PKG_CONFIG_PATH="/apex/$apex_name/lib/pkgconfig${PKG_CONFIG_PATH:+:}$PKG_CONFIG_PATH"
 			fi
 		done
-
-		_pkgconfig_path="/apex/$apex_name/lib/pkgconfig"
-		if [[ -d "$_pkgconfig_path" ]]; then
-			export PKG_CONFIG_PATH="$_pkgconfig_path${PKG_CONFIG_PATH:+:}$PKG_CONFIG_PATH"
-		fi
-	done
+	fi
 }
 
 buildenv_functions+=('buildenv_apex_install')
