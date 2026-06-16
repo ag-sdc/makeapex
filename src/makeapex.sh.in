@@ -842,13 +842,15 @@ create_package() {
 		local size_kb
 		size_kb=$(du -sk "$pkgnamedir" | awk '{print $1}')
 		local size_bytes=$(((size_kb + 2048) * 1024))
-		local part_size=$((size_bytes + 1048576))
+		local part_size=$(( size_bytes + (size_bytes / 100) + 1048576 ))
+		part_size=$(( (part_size + 4095) / 4096 * 4096 ))
 		@MKE2FS@ -F -O ^has_journal -b 4096 -m 0 -t ext4 -d "$pkgdirprefix" "$pkgnamedir/apex_payload.img" $((size_bytes / 1024))K >/dev/null 2>&1 || exit 1
 	else
 		@MKFSEROFS@ -z lz4hc "$pkgnamedir/apex_payload.img" "$pkgdirprefix"/ >/dev/null 2>&1 || exit 1
 		local img_size
 		img_size=$(stat -c%s "$pkgnamedir/apex_payload.img")
-		local part_size=$((img_size + 1048576))
+		local part_size=$(( img_size + (img_size / 100) + 1048576 ))
+		part_size=$(( (part_size + 4095) / 4096 * 4096 ))
 	fi
 
 	@AVBTOOL@ add_hashtree_footer \
