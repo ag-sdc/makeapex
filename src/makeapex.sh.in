@@ -281,12 +281,12 @@ check_deps() {
 	fi
 
 	if ((!is_bionic)); then
-		if ! command -v apex-install >/dev/null 2>&1; then
+		if ! command -v apexm >/dev/null 2>&1; then
 			# Print to stderr so it doesn't get captured as a missing dependency string
 			msg2 "$(gettext "Skipping dependency checks on non-Bionic (non-Android) platform.")" >&2
 			return 0
 		fi
-		msg2 "$(gettext "apex-install is available. Using it for dependency checks on non-Bionic platform.")" >&2
+		msg2 "$(gettext "apexm is available. Using it for dependency checks on non-Bionic platform.")" >&2
 	fi
 
 	local missing=()
@@ -359,8 +359,8 @@ handle_deps() {
 	if ((DEP_BIN)); then
 		msg "$(gettext "Installing missing dependencies...")"
 
-		if command -v apex-install >/dev/null 2>&1; then
-			local cmd=("apex-install" "${APEX_INSTALL_OPTS[@]}")
+		if command -v apexm >/dev/null 2>&1; then
+			local cmd=("apexm" "-S" "${APEX_INSTALL_OPTS[@]}")
 			if [[ -z "$APEX_INSTALL_ARCH_OVERRIDE" && -n "$pkgarch" ]]; then
 				cmd+=("--arch=$pkgarch")
 			fi
@@ -381,7 +381,7 @@ handle_deps() {
 				fi
 			fi
 			if ! "${cmd[@]}"; then
-				error "$(gettext "'%s' failed to install missing dependencies.")" "apex-install"
+				error "$(gettext "'%s' failed to install missing dependencies.")" "apexm"
 				return $R_DEPS_MISSING
 			fi
 		else
@@ -1264,7 +1264,7 @@ usage() {
 	printf -- "$(gettext "  --noprogressbar  Do not show a progress bar when downloading files")\n"
 	echo
 	# shellcheck disable=SC2059
-	printf -- "$(gettext "These options can be passed to %s:")\n" "apex-install"
+	printf -- "$(gettext "These options can be passed to %s:")\n" "apexm"
 	echo
 	# shellcheck disable=SC2059
 	printf -- "$(gettext "  --arch <arch>            Force architecture (overrides %s)")\n" "\$CARCH"
@@ -1312,7 +1312,7 @@ OPT_LONG=('allsource' 'check' 'clean' 'cleanbuild' 'config:' 'dir:' 'force' 'gen
 # Pacman Options
 OPT_LONG+=('asdeps' 'noconfirm' 'needed' 'noprogressbar')
 
-# apex-install Options
+# apexm Options
 OPT_LONG+=('arch:' 'max-microarch:')
 
 if ! parseopts "$OPT_SHORT" "${OPT_LONG[@]}" -- "$@"; then
@@ -1329,7 +1329,7 @@ while true; do
 	--noconfirm) PACMAN_OPTS+=("--noconfirm") ;;
 	--noprogressbar) PACMAN_OPTS+=("--noprogressbar") ;;
 
-	# apex-install Options
+	# apexm Options
 	--arch)
 		shift
 		APEX_INSTALL_OPTS+=("--arch=$1")
