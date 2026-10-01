@@ -60,6 +60,10 @@ custom_target(
   install : true,
   install_dir : get_option('bindir'))
 
+test('test_makedepends',
+  BASH,
+  args : [ join_paths(meson.project_source_root(), 'tests/test_makedepends.sh') ])
+
 custom_target(
   'makeapex.conf',
   input : 'src/makeapex.conf.in',

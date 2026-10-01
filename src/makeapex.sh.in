@@ -89,6 +89,23 @@ MAKEAPEX_LINT_APEXBUILD=${MAKEAPEX_LINT_APEXBUILD:-1}
 PACMAN_OPTS=()
 APEX_INSTALL_OPTS=()
 
+# Detect non-Android (cross-compile / non-Bionic libc host)
+if [[ -z "${is_bionic+x}" ]]; then
+	is_bionic=0
+	if LC_ALL=C readelf -l /bin/sh 2>/dev/null | grep -iq 'program interpreter.*linker' ||
+	   LC_ALL=C readelf -l "$BASH" 2>/dev/null | grep -iq 'program interpreter.*linker'; then
+		is_bionic=1
+	else
+		for f in /system/bin/linker* /apex/com.android.runtime/bin/linker64; do
+			if [[ -e "$f" ]]; then
+				is_bionic=1
+				break
+			fi
+		done
+	fi
+fi
+export is_bionic
+
 shopt -s extglob
 
 ### SUBROUTINES ###
@@ -269,17 +286,69 @@ run_pacman() {
 	"${cmd[@]}"
 }
 
+check_apex_lib_exists() {
+	local target_soname=$1
+	local dep_name=$2
+
+	local search_paths=(
+		"/system/lib64" "/system/lib"
+		"/system_ext/lib64" "/system_ext/lib"
+		"/product/lib64" "/product/lib"
+		"/apex/com.android.runtime/lib64/bionic" "/apex/com.android.runtime/lib/bionic"
+	)
+	local p
+	for p in "${search_paths[@]}"; do
+		if [[ -e "$p/$target_soname" ]]; then
+			return 0
+		fi
+	done
+
+	local apex_dir
+	for apex_dir in /apex/*/lib64 /apex/*/lib; do
+		if [[ -e "$apex_dir/$target_soname" ]]; then
+			return 0
+		fi
+	done
+
+	if [[ -n "$APEX_SEARCH_PATH" ]]; then
+		local old_ifs="$IFS"
+		IFS=':'
+		local paths=($APEX_SEARCH_PATH)
+		IFS="$old_ifs"
+		local sp
+		for sp in "${paths[@]}"; do
+			if [[ -e "$sp/$target_soname" || -e "$sp/lib64/$target_soname" || -e "$sp/lib/$target_soname" ]]; then
+				return 0
+			fi
+			for apex_dir in "$sp"/*/lib64 "$sp"/*/lib; do
+				if [[ -e "$apex_dir/$target_soname" ]]; then
+					return 0
+				fi
+			done
+		done
+	fi
+
+	if command -v apexm >/dev/null 2>&1; then
+		local apex_pkg
+		apex_pkg=$(apexm local --name "$target_soname" 2>/dev/null)
+		if [[ -z "$apex_pkg" && "$dep_name" != "$target_soname" ]]; then
+			apex_pkg=$(apexm local --name "$dep_name" 2>/dev/null)
+		fi
+		if [[ -z "$apex_pkg" && "$target_soname" == *.so* ]]; then
+			apex_pkg=$(apexm local --name "${target_soname%.so*}" 2>/dev/null)
+		fi
+		if [[ -n "$apex_pkg" ]]; then
+			return 0
+		fi
+	fi
+
+	return 1
+}
+
 check_deps() {
 	(($# > 0)) || return 0
 
 	# Skip dependency check on non-android (non-bionic libc) platforms
-	local is_bionic=0
-	if LC_ALL=C readelf -l /bin/sh 2>/dev/null | grep -iq 'program interpreter.*linker'; then
-		is_bionic=1
-	elif [[ -e /system/bin/linker || -e /system/bin/linker64 || -e /apex/com.android.runtime/bin/linker64 ]]; then
-		is_bionic=1
-	fi
-
 	if ((!is_bionic)); then
 		if ! command -v apexm >/dev/null 2>&1; then
 			# Print to stderr so it doesn't get captured as a missing dependency string
@@ -289,58 +358,105 @@ check_deps() {
 		msg2 "$(gettext "apexm is available. Using it for dependency checks on non-Bionic platform.")" >&2
 	fi
 
+	local shellopts
+	shellopts=$(shopt -p extglob)
+	shopt -s extglob
+
 	local missing=()
 	for dep in "$@"; do
-		local target_soname="$dep"
-		if [[ "$dep" == _* ]]; then
-			if [[ "$dep" =~ ^_(.+)-([^-]+)-([^-]+)$ ]]; then
+		local dep_name="${dep%%@(<|>|=|>=|<=)*}"
+		local target_soname="$dep_name"
+		if [[ "$dep_name" == _* ]]; then
+			if [[ "$dep_name" =~ ^_(.+)-([^-]+)-([^-]+)$ ]]; then
 				local soname="${BASH_REMATCH[1]}"
 				local d_arch="${BASH_REMATCH[2]}"
 				local d_march="${BASH_REMATCH[3]}"
 				target_soname="libdummy_${soname//-/_}-${d_arch}-${d_march}.so"
 			else
-				target_soname="libdummy${dep//-/_}.so"
+				target_soname="libdummy${dep_name//-/_}.so"
 			fi
-		elif [[ "$dep" != *.so* ]]; then
-			# If it doesn't end in .so and isn't virtual, check PATH (useful for makedepends)
-			if command -v "$dep" >/dev/null 2>&1; then
+		elif [[ "$dep_name" != *.so* ]]; then
+			# If it doesn't end in .so and isn't virtual, check PATH only on Android (bionic) host
+			if ((is_bionic)) && command -v "$dep_name" >/dev/null 2>&1; then
 				continue
 			fi
-			target_soname="$dep.so"
+			target_soname="$dep_name.so"
 		fi
 
-		local found=0
-		local search_paths=(
-			"/system/lib64" "/system/lib"
-			"/system_ext/lib64" "/system_ext/lib"
-			"/product/lib64" "/product/lib"
-			"/apex/com.android.runtime/lib64/bionic" "/apex/com.android.runtime/lib/bionic"
-		)
-		for p in "${search_paths[@]}"; do
-			if [[ -e "$p/$target_soname" ]]; then
-				found=1
-				break
-			fi
-		done
-
-		if ((!found)); then
-			for apex_dir in /apex/*/lib64 /apex/*/lib; do
-				if [[ -e "$apex_dir/$target_soname" ]]; then
-					found=1
-					break
-				fi
-			done
-		fi
-
-		if ((!found)); then
-			missing+=("$target_soname")
+		if ! check_apex_lib_exists "$target_soname" "$dep_name"; then
+			missing+=("$dep")
 		fi
 	done
+
+	eval "$shellopts"
 
 	if ((${#missing[@]} > 0)); then
 		printf "%s\n" "${missing[@]}"
 		return 127
 	fi
+	return 0
+}
+
+check_buildtime_deps_non_android() {
+	local shellopts
+	shellopts=$(shopt -p extglob)
+	shopt -s extglob
+
+	local blddeps=()
+	local d
+	for d in "${makedepends[@]}"; do
+		[[ -z "$d" ]] && continue
+		if ! in_array "$d" "${blddeps[@]}"; then
+			blddeps+=("$d")
+		fi
+	done
+	if ((CHECKFUNC)); then
+		for d in "${checkdepends[@]}"; do
+			[[ -z "$d" ]] && continue
+			if ! in_array "$d" "${blddeps[@]}"; then
+				blddeps+=("$d")
+			fi
+		done
+	fi
+
+	if ((${#blddeps[@]} == 0)); then
+		eval "$shellopts"
+		return 0
+	fi
+
+	local missing=()
+	local dep
+	for dep in "${blddeps[@]}"; do
+		local dep_name="${dep%%@(<|>|=|>=|<=)*}"
+		local target_soname="$dep_name"
+		if [[ "$dep_name" == _* ]]; then
+			if [[ "$dep_name" =~ ^_(.+)-([^-]+)-([^-]+)$ ]]; then
+				local soname="${BASH_REMATCH[1]}"
+				local d_arch="${BASH_REMATCH[2]}"
+				local d_march="${BASH_REMATCH[3]}"
+				target_soname="libdummy_${soname//-/_}-${d_arch}-${d_march}.so"
+			else
+				target_soname="libdummy${dep_name//-/_}.so"
+			fi
+		elif [[ "$dep_name" != *.so* ]]; then
+			# All APEX dependencies are library-based (.so); do NOT check host PATH
+			target_soname="$dep_name.so"
+		fi
+
+		if ! check_apex_lib_exists "$target_soname" "$dep_name"; then
+			missing+=("$dep")
+		fi
+	done
+
+	eval "$shellopts"
+
+	if ((${#missing[@]} > 0)); then
+		warning "$(gettext "Unmet make dependencies:")"
+		for dep in "${missing[@]}"; do
+			msg2 "$dep"
+		done
+	fi
+
 	return 0
 }
 
@@ -1729,10 +1845,14 @@ else
 
 	if ((!deperr)); then
 		msg "$(gettext "Checking buildtime dependencies...")"
-		if ((CHECKFUNC)); then
-			resolve_deps "${makedepends[@]}" "${checkdepends[@]}" || deperr=1
+		if ((is_bionic)); then
+			if ((CHECKFUNC)); then
+				resolve_deps "${makedepends[@]}" "${checkdepends[@]}" || deperr=1
+			else
+				resolve_deps "${makedepends[@]}" || deperr=1
+			fi
 		else
-			resolve_deps "${makedepends[@]}" || deperr=1
+			check_buildtime_deps_non_android
 		fi
 	fi
 

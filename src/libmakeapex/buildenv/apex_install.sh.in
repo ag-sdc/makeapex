@@ -6,16 +6,29 @@ LIBMAKEAPEX_BUILDENV_APEX_INSTALL_SH=1
 
 buildenv_apex_install() {
 	if type -p apexm >/dev/null; then
+		local shellopts
+		shellopts=$(shopt -p extglob)
+		shopt -s extglob
 		for dep in "${makedepends[@]}"; do
+			local dep_name="${dep%%@(<|>|=|>=|<=)*}"
 			local apex_name
-			apex_name=$(${PACMAN_AUTH[@]} apexm local --name "$dep" 2>/dev/null)
+			apex_name=$(${PACMAN_AUTH[@]} apexm local --name "$dep_name" 2>/dev/null)
+			if [[ -z "$apex_name" && "$dep_name" == *.so* ]]; then
+				apex_name=$(${PACMAN_AUTH[@]} apexm local --name "${dep_name%.so*}" 2>/dev/null)
+			fi
 			if [[ -n "$apex_name" ]]; then
 				export CFLAGS="$CFLAGS -I/apex/$apex_name/include"
 				export CXXFLAGS="$CXXFLAGS -I/apex/$apex_name/include"
-				export LDFLAGS="$LDFLAGS -L/apex/$apex_name/lib"
-				export PKG_CONFIG_PATH="/apex/$apex_name/lib/pkgconfig${PKG_CONFIG_PATH:+:}$PKG_CONFIG_PATH"
+				if [[ ("$CARCH" == *"64"* || "${arch[0]}" == *"64"*) && -d "/apex/$apex_name/lib64" ]]; then
+					export LDFLAGS="$LDFLAGS -L/apex/$apex_name/lib64"
+					export PKG_CONFIG_PATH="/apex/$apex_name/lib64/pkgconfig${PKG_CONFIG_PATH:+:}$PKG_CONFIG_PATH"
+				else
+					export LDFLAGS="$LDFLAGS -L/apex/$apex_name/lib"
+					export PKG_CONFIG_PATH="/apex/$apex_name/lib/pkgconfig${PKG_CONFIG_PATH:+:}$PKG_CONFIG_PATH"
+				fi
 			fi
 		done
+		eval "$shellopts"
 	fi
 }
 
