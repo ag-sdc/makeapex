@@ -488,6 +488,9 @@ handle_deps() {
 			if [[ -z "$APEX_INSTALL_API_LEVEL_OVERRIDE" && -n "${api_level}" ]]; then
 				cmd+=("--api-level=${api_level}")
 			fi
+			if [[ -z "$APEX_INSTALL_SKIP_ABI_LEVEL_OVERRIDE" ]]; then
+				cmd+=("--skip-abi-level=3")
+			fi
 			cmd+=("${deplist[@]}")
 			if ((${#PACMAN_AUTH[@]})); then
 				if in_array '%c' "${PACMAN_AUTH[@]}"; then
@@ -1386,6 +1389,9 @@ usage() {
 	printf -- "$(gettext "  --arch <arch>            Force architecture (overrides %s)")\n" "\$CARCH"
 	# shellcheck disable=SC2059
 	printf -- "$(gettext "  --max-microarch <level>  Force highest microarchitecture level (overrides internal %s)")\n" "microarch_level"
+	printf -- "$(gettext "  --skip-abi-level <level> Skip ABI level for apexm (default: 3)")\n"
+	printf -- "$(gettext "  --disable-skip-abis      Do not skip base Android ABI libraries (alias for --skip-abi-level 0)")\n"
+	printf -- "$(gettext "  --skip-abi-custom <lib>  Specify custom libraries to skip in apexm")\n"
 	echo
 	# shellcheck disable=SC2059
 	printf -- "$(gettext "If %s is not specified, %s will look for '%s'")\n" "-p" "makeapex" "$BUILDSCRIPT"
@@ -1429,7 +1435,7 @@ OPT_LONG=('allsource' 'check' 'clean' 'cleanbuild' 'config:' 'dir:' 'force' 'gen
 OPT_LONG+=('asdeps' 'noconfirm' 'needed' 'noprogressbar')
 
 # apexm Options
-OPT_LONG+=('arch:' 'max-microarch:')
+OPT_LONG+=('arch:' 'max-microarch:' 'skip-abi-level:' 'disable-skip-abis' 'skip-abi-custom:')
 
 if ! parseopts "$OPT_SHORT" "${OPT_LONG[@]}" -- "$@"; then
 	exit "$E_INVALID_OPTION"
@@ -1455,6 +1461,19 @@ while true; do
 		shift
 		APEX_INSTALL_OPTS+=("--max-microarch=$1")
 		APEX_INSTALL_MICROARCH_OVERRIDE=1
+		;;
+	--skip-abi-level)
+		shift
+		APEX_INSTALL_OPTS+=("--skip-abi-level=$1")
+		APEX_INSTALL_SKIP_ABI_LEVEL_OVERRIDE=1
+		;;
+	--disable-skip-abis)
+		APEX_INSTALL_OPTS+=("--disable-skip-abis")
+		APEX_INSTALL_SKIP_ABI_LEVEL_OVERRIDE=1
+		;;
+	--skip-abi-custom)
+		shift
+		APEX_INSTALL_OPTS+=("--skip-abi-custom=$1")
 		;;
 
 	# Makepkg Options

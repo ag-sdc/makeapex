@@ -257,7 +257,72 @@ if ! echo "$BIONIC_OUTPUT" | grep -q "Could not resolve all dependencies"; then
 fi
 echo "PASSED: on Android (is_bionic=1), missing makedepends causes failure as expected"
 
-echo "=== All 7 tests PASSED successfully ==="
+# Test 7: Verify skip-abi options passed to apexm (default level 3, explicit level, custom)
+echo "[Test 7] Verify skip-abi flags forwarded to apexm"
+MOCK_DIR="$TEST_TMPDIR/mock_bin"
+mkdir -p "$MOCK_DIR"
+cat > "$MOCK_DIR/apexm" << 'EOF'
+#!/bin/bash
+echo "MOCK_APEXM_ARGS: $@" >> "$MOCK_APEXM_LOG"
+exit 0
+EOF
+chmod +x "$MOCK_DIR/apexm"
+
+MOCK_APEXM_LOG="$TEST_TMPDIR/apexm.log"
+export MOCK_APEXM_LOG
+
+TEST_CONF="$TEST_TMPDIR/test_makeapex.conf"
+cat "$BUILD_DIR/makeapex.conf" > "$TEST_CONF"
+echo "PACMAN_AUTH=()" >> "$TEST_CONF"
+
+# Package with runtime dependency to trigger handle_deps in resolve_deps
+TEST_DEP_PKG="$TEST_TMPDIR/deppkg"
+mkdir -p "$TEST_DEP_PKG"
+cat > "$TEST_DEP_PKG/APEXBUILD" << 'EOF'
+pkgname=com.test.deppkg
+pkgver=1.0.0
+pkgrel=1
+arch=('any')
+depends=('libmissing.so')
+EOF
+cd "$TEST_DEP_PKG"
+
+# 7a: Default should pass --skip-abi-level=3
+> "$MOCK_APEXM_LOG"
+PATH="$MOCK_DIR:$PATH" is_bionic=1 "$MAKEAPEX_BIN" --config "$TEST_CONF" --syncdeps --noconfirm --nobuild >/dev/null 2>&1 || true
+if ! grep "MOCK_APEXM_ARGS: -S" "$MOCK_APEXM_LOG" | grep -q -- "--skip-abi-level=3"; then
+    echo "FAILED: makeapex did not pass --skip-abi-level=3 by default to apexm"
+    exit 1
+fi
+echo "PASSED: makeapex defaults to --skip-abi-level=3 when invoking apexm"
+
+# 7b: Explicit --skip-abi-level 1
+> "$MOCK_APEXM_LOG"
+PATH="$MOCK_DIR:$PATH" is_bionic=1 "$MAKEAPEX_BIN" --config "$TEST_CONF" --syncdeps --noconfirm --nobuild --skip-abi-level 1 >/dev/null 2>&1 || true
+if ! grep "MOCK_APEXM_ARGS: -S" "$MOCK_APEXM_LOG" | grep -q -- "--skip-abi-level=1"; then
+    echo "FAILED: makeapex did not forward --skip-abi-level=1 to apexm"
+    exit 1
+fi
+if grep "MOCK_APEXM_ARGS: -S" "$MOCK_APEXM_LOG" | grep -q -- "--skip-abi-level=3"; then
+    echo "FAILED: makeapex should not pass --skip-abi-level=3 when overridden"
+    exit 1
+fi
+echo "PASSED: makeapex overrides --skip-abi-level properly"
+
+# 7c: --disable-skip-abis and --skip-abi-custom
+> "$MOCK_APEXM_LOG"
+PATH="$MOCK_DIR:$PATH" is_bionic=1 "$MAKEAPEX_BIN" --config "$TEST_CONF" --syncdeps --noconfirm --nobuild --disable-skip-abis --skip-abi-custom /path/to/libcustom.so >/dev/null 2>&1 || true
+if ! grep "MOCK_APEXM_ARGS: -S" "$MOCK_APEXM_LOG" | grep -q -- "--disable-skip-abis"; then
+    echo "FAILED: makeapex did not forward --disable-skip-abis to apexm"
+    exit 1
+fi
+if ! grep "MOCK_APEXM_ARGS: -S" "$MOCK_APEXM_LOG" | grep -q -- "--skip-abi-custom=/path/to/libcustom.so"; then
+    echo "FAILED: makeapex did not forward --skip-abi-custom to apexm"
+    exit 1
+fi
+echo "PASSED: makeapex forwards --disable-skip-abis and --skip-abi-custom to apexm"
+
+echo "=== All tests PASSED successfully ==="
 
 if [[ -n "$1" ]]; then
     touch "$1"
