@@ -19,9 +19,15 @@ buildenv_apex_install() {
 			if [[ -n "$apex_name" ]]; then
 				export CFLAGS="$CFLAGS -I/apex/$apex_name/include"
 				export CXXFLAGS="$CXXFLAGS -I/apex/$apex_name/include"
-				if [[ ("$CARCH" == *"64"* || "${arch[0]}" == *"64"*) && -d "/apex/$apex_name/lib64" ]]; then
-					export LDFLAGS="$LDFLAGS -L/apex/$apex_name/lib64"
-					export PKG_CONFIG_PATH="/apex/$apex_name/lib64/pkgconfig${PKG_CONFIG_PATH:+:}$PKG_CONFIG_PATH"
+				if [[ "$CARCH" == *"64"* || "${arch[0]}" == *"64"* ]]; then
+					if [[ -d "/apex/$apex_name/lib64" ]]; then
+						export LDFLAGS="$LDFLAGS -L/apex/$apex_name/lib64"
+						export PKG_CONFIG_PATH="/apex/$apex_name/lib64/pkgconfig${PKG_CONFIG_PATH:+:}$PKG_CONFIG_PATH"
+					fi
+					if [[ -d "/apex/$apex_name/lib" ]]; then
+						export LDFLAGS="$LDFLAGS -L/apex/$apex_name/lib"
+						export PKG_CONFIG_PATH="/apex/$apex_name/lib/pkgconfig${PKG_CONFIG_PATH:+:}$PKG_CONFIG_PATH"
+					fi
 				else
 					export LDFLAGS="$LDFLAGS -L/apex/$apex_name/lib"
 					export PKG_CONFIG_PATH="/apex/$apex_name/lib/pkgconfig${PKG_CONFIG_PATH:+:}$PKG_CONFIG_PATH"
