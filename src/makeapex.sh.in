@@ -451,10 +451,97 @@ check_buildtime_deps_non_android() {
 	eval "$shellopts"
 
 	if ((${#missing[@]} > 0)); then
-		warning "$(gettext "Unmet make dependencies:")"
-		for dep in "${missing[@]}"; do
-			msg2 "$dep"
-		done
+		local unavailable=()
+		local available=()
+		local available_targets=()
+
+		if ((DEP_BIN)) && command -v apexm >/dev/null 2>&1; then
+			local apexm_opts=("${APEX_INSTALL_OPTS[@]}")
+			if [[ -z "$APEX_INSTALL_ARCH_OVERRIDE" && -n "$pkgarch" ]]; then
+				apexm_opts+=("--arch=$pkgarch")
+			fi
+			local dyn_microarch_var="_${pkgarch}_microarch_level"
+			if [[ -z "$APEX_INSTALL_MICROARCH_OVERRIDE" && -n "${!dyn_microarch_var}" ]]; then
+				local formatted_march="v${!dyn_microarch_var}"
+				apexm_opts+=("--max-microarch=${formatted_march//./_}")
+			fi
+			if [[ -z "$APEX_INSTALL_API_LEVEL_OVERRIDE" && -n "${api_level}" ]]; then
+				apexm_opts+=("--api-level=${api_level}")
+			fi
+			if [[ -z "$APEX_INSTALL_SKIP_ABI_LEVEL_OVERRIDE" ]]; then
+				apexm_opts+=("--skip-abi-level=3")
+			fi
+
+			for dep in "${missing[@]}"; do
+				local dep_name="${dep%%@(<|>|=|>=|<=)*}"
+				local target_soname="$dep_name"
+				if [[ "$dep_name" == _* ]]; then
+					if [[ "$dep_name" =~ ^_(.+)-([^-]+)-([^-]+)$ ]]; then
+						local soname="${BASH_REMATCH[1]}"
+						local d_arch="${BASH_REMATCH[2]}"
+						local d_march="${BASH_REMATCH[3]}"
+						target_soname="libdummy_${soname//-/_}-${d_arch}-${d_march}.so"
+					else
+						target_soname="libdummy${dep_name//-/_}.so"
+					fi
+				elif [[ "$dep_name" != *.so* ]]; then
+					target_soname="$dep_name.so"
+				fi
+
+				local found=0
+				local target_to_install=""
+				# Search for providers by library name or package name
+				if apexm -Ss "${apexm_opts[@]}" -l "$target_soname" >/dev/null 2>&1; then
+					found=1
+					target_to_install="$target_soname"
+				elif [[ "$dep_name" != "$target_soname" ]] && apexm -Ss "${apexm_opts[@]}" "$dep_name" >/dev/null 2>&1; then
+					found=1
+					target_to_install="$dep_name"
+				fi
+
+				if ((found)); then
+					available+=("$dep")
+					available_targets+=("$target_to_install")
+				else
+					unavailable+=("$dep")
+				fi
+			done
+
+			if ((${#available_targets[@]} > 0)); then
+				msg "$(gettext "Installing available make dependencies...")"
+				local cmd=("apexm" "-S" "-l" "${apexm_opts[@]}")
+				if in_array "--noconfirm" "${PACMAN_OPTS[@]}"; then
+					cmd+=("--noconfirm")
+				fi
+				cmd+=("${available_targets[@]}")
+				if ((${#PACMAN_AUTH[@]})); then
+					if in_array '%c' "${PACMAN_AUTH[@]}"; then
+						cmd=("${PACMAN_AUTH[@]/\%c/$(printf '%q ' "${cmd[@]}")}")
+					else
+						cmd=("${PACMAN_AUTH[@]}" "${cmd[@]}")
+					fi
+				fi
+				"${cmd[@]}" || true
+
+				for i in "${!available[@]}"; do
+					local dep="${available[i]}"
+					local dep_name="${dep%%@(<|>|=|>=|<=)*}"
+					local target_soname="${available_targets[i]}"
+					if ! check_apex_lib_exists "$target_soname" "$dep_name"; then
+						unavailable+=("$dep")
+					fi
+				done
+			fi
+		else
+			unavailable=("${missing[@]}")
+		fi
+
+		if ((${#unavailable[@]} > 0)); then
+			warning "$(gettext "Unmet make dependencies:")"
+			for dep in "${unavailable[@]}"; do
+				msg2 "$dep"
+			done
+		fi
 	fi
 
 	return 0

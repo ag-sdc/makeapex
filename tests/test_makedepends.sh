@@ -320,7 +320,96 @@ if ! grep "MOCK_APEXM_ARGS: -S" "$MOCK_APEXM_LOG" | grep -q -- "--skip-abi-custo
     echo "FAILED: makeapex did not forward --skip-abi-custom to apexm"
     exit 1
 fi
-echo "PASSED: makeapex forwards --disable-skip-abis and --skip-abi-custom to apexm"
+# Test 8: End-to-end install available makedepends via apexm on non-Android and warn on unavailable
+echo "[Test 8] End-to-end install available makedepends via apexm on non-Android"
+TEST_AVAIL_PKG_DIR="$TEST_TMPDIR/testpkg_avail"
+mkdir -p "$TEST_AVAIL_PKG_DIR"
+
+cat > "$TEST_AVAIL_PKG_DIR/APEXBUILD" << 'EOF'
+pkgname=com.test.availmakedeps
+pkgver=1.0.0
+pkgrel=1
+arch=('any')
+payload_fs=erofs
+makedepends=('libavail.so' 'libunavail.so')
+
+build() {
+  echo "BUILD_EXECUTED"
+}
+
+package() {
+  mkdir -p "$pkgdir/bin"
+}
+EOF
+
+MOCK_AVAIL_DIR="$TEST_TMPDIR/mock_avail_bin"
+mkdir -p "$MOCK_AVAIL_DIR"
+MOCK_AVAIL_APEX_DIR="$TEST_TMPDIR/mock_avail_apex"
+mkdir -p "$MOCK_AVAIL_APEX_DIR"
+
+cat > "$MOCK_AVAIL_DIR/apexm" << 'EOF'
+#!/bin/bash
+echo "MOCK_APEXM_INVOKED: $@" >> "$MOCK_APEXM_AVAIL_LOG"
+if [[ "$*" == *"-Ss "* ]]; then
+    if [[ "$*" == *"libavail.so"* ]]; then
+        echo "apex/libavail 1.0.0 [installed]"
+        exit 0
+    else
+        exit 1
+    fi
+elif [[ "$*" == *"-S "* ]]; then
+    if [[ "$*" == *"libavail.so"* ]]; then
+        mkdir -p "$MOCK_AVAIL_APEX_DIR/lib"
+        touch "$MOCK_AVAIL_APEX_DIR/lib/libavail.so"
+        exit 0
+    fi
+fi
+exit 0
+EOF
+chmod +x "$MOCK_AVAIL_DIR/apexm"
+
+MOCK_APEXM_AVAIL_LOG="$TEST_TMPDIR/apexm_avail.log"
+export MOCK_APEXM_AVAIL_LOG
+export MOCK_AVAIL_APEX_DIR
+
+cd "$TEST_AVAIL_PKG_DIR"
+AVAIL_OUTPUT=$(APEX_SEARCH_PATH="$MOCK_AVAIL_APEX_DIR" PATH="$MOCK_AVAIL_DIR:$PATH" is_bionic=0 "$MAKEAPEX_BIN" --config "$TEST_CONF" -s --nobuild 2>&1 || true)
+echo "$AVAIL_OUTPUT"
+
+if ! echo "$AVAIL_OUTPUT" | grep -q "Installing available make dependencies"; then
+    echo "FAILED: Expected 'Installing available make dependencies' when available makedepends found"
+    exit 1
+fi
+if ! grep -q "MOCK_APEXM_INVOKED: -S " "$MOCK_APEXM_AVAIL_LOG"; then
+    echo "FAILED: apexm -S was not called to install available makedepends"
+    exit 1
+fi
+if ! grep "MOCK_APEXM_INVOKED: -S " "$MOCK_APEXM_AVAIL_LOG" | grep -q "libavail.so"; then
+    echo "FAILED: libavail.so was not passed to apexm -S"
+    exit 1
+fi
+if grep "MOCK_APEXM_INVOKED: -S " "$MOCK_APEXM_AVAIL_LOG" | grep -q "libunavail.so"; then
+    echo "FAILED: libunavail.so should not be passed to apexm -S"
+    exit 1
+fi
+if ! echo "$AVAIL_OUTPUT" | grep -q "WARNING:.*Unmet make dependencies:"; then
+    echo "FAILED: Unavailable makedepends was not warned"
+    exit 1
+fi
+if ! echo "$AVAIL_OUTPUT" | grep -q "libunavail.so"; then
+    echo "FAILED: libunavail.so was not listed under unmet make dependencies"
+    exit 1
+fi
+UNMET_SECTION=$(echo "$AVAIL_OUTPUT" | sed -n '/Unmet make dependencies:/,/Sources are ready./p')
+if echo "$UNMET_SECTION" | grep -q "libavail.so"; then
+    echo "FAILED: libavail.so was warned as unmet after successful installation"
+    exit 1
+fi
+if ! echo "$AVAIL_OUTPUT" | grep -q "Sources are ready."; then
+    echo "FAILED: makeapex did not continue successfully after installing available makedepends"
+    exit 1
+fi
+echo "PASSED: available makedepends installed via apexm and unavailable warned"
 
 echo "=== All tests PASSED successfully ==="
 
