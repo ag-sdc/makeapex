@@ -409,7 +409,117 @@ if ! echo "$AVAIL_OUTPUT" | grep -q "Sources are ready."; then
     echo "FAILED: makeapex did not continue successfully after installing available makedepends"
     exit 1
 fi
-echo "PASSED: available makedepends installed via apexm and unavailable warned"
+# Test 9: Verify buildenv_apex_install handling of companion .dev APEX and lib64 vs lib prioritization
+echo "[Test 9] buildenv_apex_install .dev APEX and lib64 vs lib prioritization"
+
+TEST9_OUT=$(bash -c "
+export MAKEAPEX_LIBRARY='$LIBMAKEAPEX_DIR'
+source '$LIBMAKEAPEX_DIR/buildenv.sh'
+
+MOCK_ROOT='$TEST_TMPDIR/mock_apex_root'
+mkdir -p \"\$MOCK_ROOT/com.test.pkg.dev/include\"
+mkdir -p \"\$MOCK_ROOT/com.test.pkg.dev/lib64/pkgconfig\"
+mkdir -p \"\$MOCK_ROOT/com.test.pkg.dev/lib/pkgconfig\"
+mkdir -p \"\$MOCK_ROOT/com.test.pkg.dev/share/pkgconfig\"
+mkdir -p \"\$MOCK_ROOT/com.test.pkg/lib64/pkgconfig\"
+mkdir -p \"\$MOCK_ROOT/com.test.pkg/lib/pkgconfig\"
+
+export APEX_SEARCH_PATH=\"\$MOCK_ROOT\"
+export CARCH=\"x86_64\"
+arch=('x86_64')
+makedepends=('com.test.pkg')
+
+# 9a: 64-bit environment with companion .dev
+CFLAGS=\"\"
+CXXFLAGS=\"\"
+LDFLAGS=\"\"
+PKG_CONFIG_PATH=\"/usr/lib/pkgconfig\"
+
+buildenv_apex_install
+
+echo \"64BIT_CFLAGS=\$CFLAGS\"
+echo \"64BIT_LDFLAGS=\$LDFLAGS\"
+echo \"64BIT_PKG_CONFIG_PATH=\$PKG_CONFIG_PATH\"
+
+# 9b: 32-bit environment
+CARCH=\"armv7a\"
+arch=('armv7a')
+makedepends=('com.test.pkg')
+CFLAGS=\"\"
+CXXFLAGS=\"\"
+LDFLAGS=\"\"
+PKG_CONFIG_PATH=\"/usr/lib/pkgconfig\"
+
+buildenv_apex_install
+
+echo \"32BIT_LDFLAGS=\$LDFLAGS\"
+echo \"32BIT_PKG_CONFIG_PATH=\$PKG_CONFIG_PATH\"
+" 2>&1)
+
+echo "$TEST9_OUT"
+
+# Assert 64-bit include in CFLAGS
+if ! echo "$TEST9_OUT" | grep -q "64BIT_CFLAGS=.*-I$TEST_TMPDIR/mock_apex_root/com.test.pkg.dev/include"; then
+    echo "FAILED: 64BIT_CFLAGS missing companion .dev include path"
+    exit 1
+fi
+
+# Assert 64-bit LDFLAGS ordering: lib64 must precede lib
+LDFLAGS_LINE=$(echo "$TEST9_OUT" | grep "^64BIT_LDFLAGS=")
+DEV_LIB64_POS=$(echo "$LDFLAGS_LINE" | awk '{print index($0, "com.test.pkg.dev/lib64")}')
+DEV_LIB_POS=$(echo "$LDFLAGS_LINE" | awk '{print index($0, "com.test.pkg.dev/lib ")}')
+if (( DEV_LIB64_POS == 0 || DEV_LIB_POS == 0 || DEV_LIB64_POS >= DEV_LIB_POS )); then
+    echo "FAILED: In 64BIT_LDFLAGS, com.test.pkg.dev/lib64 must precede com.test.pkg.dev/lib"
+    exit 1
+fi
+
+# Assert 64-bit PKG_CONFIG_PATH ordering:
+# .dev/lib64/pkgconfig before .dev/lib/pkgconfig before .dev/share/pkgconfig before com.test.pkg/lib64 before /usr/lib/pkgconfig
+PCP_LINE=$(echo "$TEST9_OUT" | grep "^64BIT_PKG_CONFIG_PATH=")
+P_DEV_LIB64=$(echo "$PCP_LINE" | awk '{print index($0, "com.test.pkg.dev/lib64/pkgconfig")}')
+P_DEV_LIB=$(echo "$PCP_LINE" | awk '{print index($0, "com.test.pkg.dev/lib/pkgconfig")}')
+P_DEV_SHARE=$(echo "$PCP_LINE" | awk '{print index($0, "com.test.pkg.dev/share/pkgconfig")}')
+P_MAIN_LIB64=$(echo "$PCP_LINE" | awk '{print index($0, "com.test.pkg/lib64/pkgconfig")}')
+P_SYS=$(echo "$PCP_LINE" | awk '{print index($0, "/usr/lib/pkgconfig")}')
+
+if (( P_DEV_LIB64 == 0 || P_DEV_LIB == 0 || P_DEV_LIB64 >= P_DEV_LIB )); then
+    echo "FAILED: In PKG_CONFIG_PATH, .dev/lib64/pkgconfig must precede .dev/lib/pkgconfig"
+    exit 1
+fi
+if (( P_DEV_SHARE == 0 || P_DEV_LIB >= P_DEV_SHARE )); then
+    echo "FAILED: In PKG_CONFIG_PATH, .dev/lib/pkgconfig must precede .dev/share/pkgconfig"
+    exit 1
+fi
+if (( P_MAIN_LIB64 == 0 || P_DEV_SHARE >= P_MAIN_LIB64 )); then
+    echo "FAILED: In PKG_CONFIG_PATH, .dev paths must precede companion main package paths"
+    exit 1
+fi
+if (( P_SYS == 0 || P_MAIN_LIB64 >= P_SYS )); then
+    echo "FAILED: In PKG_CONFIG_PATH, apex paths must precede system /usr/lib/pkgconfig"
+    exit 1
+fi
+
+# Assert 32-bit: lib64 must NOT be present
+LDFLAGS_32_LINE=$(echo "$TEST9_OUT" | grep "^32BIT_LDFLAGS=")
+PCP_32_LINE=$(echo "$TEST9_OUT" | grep "^32BIT_PKG_CONFIG_PATH=")
+if echo "$LDFLAGS_32_LINE" | grep -q "lib64"; then
+    echo "FAILED: 32BIT_LDFLAGS should not contain lib64"
+    exit 1
+fi
+if echo "$PCP_32_LINE" | grep -q "lib64"; then
+    echo "FAILED: 32BIT_PKG_CONFIG_PATH should not contain lib64"
+    exit 1
+fi
+if ! echo "$LDFLAGS_32_LINE" | grep -q "lib"; then
+    echo "FAILED: 32BIT_LDFLAGS should contain lib"
+    exit 1
+fi
+if ! echo "$PCP_32_LINE" | grep -q "lib/pkgconfig"; then
+    echo "FAILED: 32BIT_PKG_CONFIG_PATH should contain lib/pkgconfig"
+    exit 1
+fi
+
+echo "PASSED: buildenv_apex_install correctly handles companion .dev APEX and prioritizes lib64 over lib"
 
 echo "=== All tests PASSED successfully ==="
 

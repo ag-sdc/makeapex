@@ -5,37 +5,113 @@
 LIBMAKEAPEX_BUILDENV_APEX_INSTALL_SH=1
 
 buildenv_apex_install() {
-	if type -p apexm >/dev/null; then
-		local shellopts
-		shellopts=$(shopt -p extglob)
-		shopt -s extglob
-		for dep in "${makedepends[@]}"; do
-			local dep_name="${dep%%@(<|>|=|>=|<=)*}"
-			local apex_name
+	local shellopts
+	shellopts=$(shopt -p extglob)
+	shopt -s extglob
+
+	local base_roots=("/apex")
+	if [[ -n "$APEX_SEARCH_PATH" ]]; then
+		local old_ifs="$IFS"
+		IFS=':'
+		local search_dirs=($APEX_SEARCH_PATH)
+		IFS="$old_ifs"
+		base_roots+=("${search_dirs[@]}")
+	fi
+
+	local all_pkg_paths=()
+
+	for dep in "${makedepends[@]}"; do
+		local dep_name="${dep%%@(<|>|=|>=|<=)*}"
+		local apex_name=""
+		if type -p apexm >/dev/null 2>&1; then
 			apex_name=$(${PACMAN_AUTH[@]} apexm local --name "$dep_name" 2>/dev/null)
 			if [[ -z "$apex_name" && "$dep_name" == *.so* ]]; then
 				apex_name=$(${PACMAN_AUTH[@]} apexm local --name "${dep_name%.so*}" 2>/dev/null)
 			fi
-			if [[ -n "$apex_name" ]]; then
-				export CFLAGS="$CFLAGS -I/apex/$apex_name/include"
-				export CXXFLAGS="$CXXFLAGS -I/apex/$apex_name/include"
-				if [[ "$CARCH" == *"64"* || "${arch[0]}" == *"64"* ]]; then
-					if [[ -d "/apex/$apex_name/lib64" ]]; then
-						export LDFLAGS="$LDFLAGS -L/apex/$apex_name/lib64"
-						export PKG_CONFIG_PATH="/apex/$apex_name/lib64/pkgconfig${PKG_CONFIG_PATH:+:}$PKG_CONFIG_PATH"
-					fi
-					if [[ -d "/apex/$apex_name/lib" ]]; then
-						export LDFLAGS="$LDFLAGS -L/apex/$apex_name/lib"
-						export PKG_CONFIG_PATH="/apex/$apex_name/lib/pkgconfig${PKG_CONFIG_PATH:+:}$PKG_CONFIG_PATH"
-					fi
-				else
-					export LDFLAGS="$LDFLAGS -L/apex/$apex_name/lib"
-					export PKG_CONFIG_PATH="/apex/$apex_name/lib/pkgconfig${PKG_CONFIG_PATH:+:}$PKG_CONFIG_PATH"
-				fi
+			if [[ -z "$apex_name" && "$dep_name" != *.dev ]]; then
+				apex_name=$(${PACMAN_AUTH[@]} apexm local --name "${dep_name}.dev" 2>/dev/null)
 			fi
-		done
-		eval "$shellopts"
+		fi
+		if [[ -z "$apex_name" ]]; then
+			for root in "${base_roots[@]}"; do
+				if [[ -d "$root/$dep_name" || -d "$root/${dep_name}.dev" ]]; then
+					apex_name="$dep_name"
+					break
+				fi
+			done
+		fi
+
+		if [[ -n "$apex_name" ]]; then
+			local candidate_names=()
+			if [[ "$apex_name" == *.dev ]]; then
+				candidate_names=("$apex_name" "${apex_name%.dev}")
+			else
+				candidate_names=("${apex_name}.dev" "$apex_name")
+			fi
+
+			for root in "${base_roots[@]}"; do
+				for name in "${candidate_names[@]}"; do
+					local prefix="$root/$name"
+					[[ ! -d "$prefix" ]] && continue
+
+					if [[ -d "$prefix/include" ]]; then
+						if [[ " $CFLAGS " != *" -I$prefix/include "* ]]; then
+							export CFLAGS="$CFLAGS -I$prefix/include"
+						fi
+						if [[ " $CXXFLAGS " != *" -I$prefix/include "* ]]; then
+							export CXXFLAGS="$CXXFLAGS -I$prefix/include"
+						fi
+					fi
+
+					if [[ "$CARCH" == *"64"* || "${arch[0]}" == *"64"* ]]; then
+						# On 64-bit architectures, prioritize lib64 over lib
+						if [[ -d "$prefix/lib64" ]]; then
+							if [[ " $LDFLAGS " != *" -L$prefix/lib64 "* ]]; then
+								export LDFLAGS="$LDFLAGS -L$prefix/lib64"
+							fi
+						fi
+						if [[ -d "$prefix/lib" ]]; then
+							if [[ " $LDFLAGS " != *" -L$prefix/lib "* ]]; then
+								export LDFLAGS="$LDFLAGS -L$prefix/lib"
+							fi
+						fi
+
+						if [[ -d "$prefix/lib64/pkgconfig" ]]; then
+							all_pkg_paths+=("$prefix/lib64/pkgconfig")
+						fi
+						if [[ -d "$prefix/lib/pkgconfig" ]]; then
+							all_pkg_paths+=("$prefix/lib/pkgconfig")
+						fi
+					else
+						if [[ -d "$prefix/lib" ]]; then
+							if [[ " $LDFLAGS " != *" -L$prefix/lib "* ]]; then
+								export LDFLAGS="$LDFLAGS -L$prefix/lib"
+							fi
+						fi
+						if [[ -d "$prefix/lib/pkgconfig" ]]; then
+							all_pkg_paths+=("$prefix/lib/pkgconfig")
+						fi
+					fi
+
+					if [[ -d "$prefix/share/pkgconfig" ]]; then
+						all_pkg_paths+=("$prefix/share/pkgconfig")
+					fi
+				done
+			done
+		fi
+	done
+
+	local joined_pkg_paths=""
+	for pkg_path in "${all_pkg_paths[@]}"; do
+		if [[ ":$PKG_CONFIG_PATH:" != *":$pkg_path:"* && ":$joined_pkg_paths:" != *":$pkg_path:"* ]]; then
+			joined_pkg_paths="${joined_pkg_paths:+$joined_pkg_paths:}$pkg_path"
+		fi
+	done
+	if [[ -n "$joined_pkg_paths" ]]; then
+		export PKG_CONFIG_PATH="$joined_pkg_paths${PKG_CONFIG_PATH:+:}$PKG_CONFIG_PATH"
 	fi
+
+	eval "$shellopts"
 }
 
 buildenv_functions+=('buildenv_apex_install')
