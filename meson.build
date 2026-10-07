@@ -64,6 +64,10 @@ test('test_makedepends',
   BASH,
   args : [ join_paths(meson.project_source_root(), 'tests/test_makedepends.sh') ])
 
+test('test_versioncode',
+  BASH,
+  args : [ join_paths(meson.project_source_root(), 'tests/test_versioncode.sh') ])
+
 custom_target(
   'makeapex.conf',
   input : 'src/makeapex.conf.in',

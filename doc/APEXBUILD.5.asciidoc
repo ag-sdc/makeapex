@@ -92,6 +92,22 @@ This will prevent any possible name clashes with internal makeapex variables.
 	allows package maintainers to make updates to the package's configure
 	flags, for example.
 
+*pkgvercode*::
+	The Android APEX `versionCode` for the package (positive integer).
+	If omitted, makeapex automatically calculates `versionCode` from `pkgver`
+	and `pkgrel`:
+	+
+	- The version string is parsed into `major`, `minor`, and `subminor` (e.g. `7.2.11`
+	  becomes `major=7`, `minor=2`, `subminor=11`). If only 2 parts `A.B` are provided,
+	  it is normalized to `0.A.B` (e.g. `2.4` becomes `major=0`, `minor=2`, `subminor=4`).
+	  If only 1 part `A` is provided, it is normalized to `0.0.A`.
+	- The base version code is computed as `major * 1000000 + minor * 1000 + subminor`.
+	- The integer release number (`R = int(pkgrel)`) is added arithmetically: `versionCode = base + R`.
+	  For example, `7.2.11-1` produces `7002012`, and `2.4-1` produces `2005`.
+	+
+	If `epoch` is defined and greater than 0, it is exported as `versionCodeMajor` in
+	`AndroidManifest.xml` and combined into the 64-bit manifest version in `apex_manifest.pb`.
+
 *arch (array)*::
 	Defines on which architectures the given package is available (e.g.,
 	`arch=('aarch64' 'x86_64')`). Packages that contain no architecture specific

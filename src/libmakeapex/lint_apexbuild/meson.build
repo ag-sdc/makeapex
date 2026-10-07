@@ -21,6 +21,7 @@ sources = [
   'pkgname.sh.in',
   'pkgrel.sh.in',
   'pkgver.sh.in',
+  'pkgvercode.sh.in',
   'provides.sh.in',
   'source.sh.in',
   'util.sh.in',

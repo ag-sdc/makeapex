@@ -822,6 +822,9 @@ write_pkginfo() {
 	local fullver
 	fullver=$(get_full_version)
 	write_kv_pair "pkgver" "$fullver"
+	local cur_vercode
+	cur_vercode=$(get_apex_version_code "$pkgname")
+	write_kv_pair "pkgvercode" "$cur_vercode"
 
 	# TODO: all fields should have this treatment
 	local spd="${pkgdesc//+([[:space:]])/ }"
@@ -857,6 +860,9 @@ write_buildinfo() {
 	local fullver
 	fullver=$(get_full_version)
 	write_kv_pair "pkgver" "$fullver"
+	local cur_vercode
+	cur_vercode=$(get_apex_version_code "$pkgname")
+	write_kv_pair "pkgvercode" "$cur_vercode"
 
 	write_kv_pair "pkgarch" "$pkgarch"
 
@@ -924,6 +930,15 @@ create_package() {
 	local apex_file="${final_file%.*apex}.apex"
 	local api=${api_level:-32}
 
+	local vercode
+	vercode=$(get_apex_version_code "$pkgname")
+	local vercode_major
+	vercode_major=$(get_apex_version_code_major)
+	local manifest_vercode_attr="android:versionCode=\"$vercode\""
+	if [[ -n "$vercode_major" ]] && (( vercode_major > 0 )); then
+		manifest_vercode_attr+=" android:versionCodeMajor=\"$vercode_major\""
+	fi
+
 	[[ -f $final_file ]] && rm -f "$final_file"
 	[[ -f $apex_file ]] && rm -f "$apex_file"
 
@@ -935,7 +950,7 @@ create_package() {
 		# Scoped redirection
 		{
 			echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
-			echo "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\" package=\"$android_pkgname\" android:versionCode=\"1\" android:versionName=\"$fullver\">"
+			echo "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\" package=\"$android_pkgname\" $manifest_vercode_attr android:versionName=\"$fullver\">"
 			{
 				echo "<uses-sdk android:minSdkVersion=\"${api}\" android:targetSdkVersion=\"${api}\"/>"
 				echo "<application android:extractNativeLibs=\"false\" android:hasCode=\"false\">"
@@ -950,6 +965,10 @@ create_package() {
 					echo "<meta-data android:name=\"packager\" android:value=\"${PACKAGER//\"/&quot;}\" />"
 					echo "<meta-data android:name=\"license\" android:value=\"${license[*]}\" />"
 					echo "<meta-data android:name=\"builddate\" android:value=\"${SOURCE_DATE_EPOCH}\" />"
+					echo "<meta-data android:name=\"version_code\" android:value=\"${vercode}\" />"
+					if [[ -n "$vercode_major" ]] && (( vercode_major > 0 )); then
+						echo "<meta-data android:name=\"version_code_major\" android:value=\"${vercode_major}\" />"
+					fi
 				} | add_tab
 				echo "</application>"
 			} | add_tab
@@ -963,9 +982,14 @@ create_package() {
 		msg2 "$(gettext "Warning: custom_manifest_json provided. apex_manifest.pb will not be compiled natively.")"
 		cp "$custom_manifest_json" "$pkgnamedir/apex_manifest.json" || exit 1
 	else
+		local manifest_version="$vercode"
+		if [[ -n "$vercode_major" ]] && (( vercode_major > 0 )); then
+			manifest_version=$(( (vercode_major << 32) | (vercode & 0xFFFFFFFF) ))
+		fi
+
 		{
 			echo "name: \"$android_pkgname\""
-			echo "version: 1"
+			echo "version: $manifest_version"
 			if [[ -f "$pkgnamedir/.provideNativeLibs" ]]; then
 				while IFS= read -r line; do
 					echo "provideNativeLibs: \"$line\""

@@ -179,6 +179,78 @@ get_full_version() {
 }
 
 ##
+#  usage : get_apex_version_code_major()
+# return : epoch if epoch > 0, else empty
+##
+get_apex_version_code_major() {
+	if (( epoch > 0 )); then
+		printf "%s\n" "$epoch"
+	fi
+}
+
+##
+#  usage : get_apex_version_code( [$pkgname] )
+# return : calculated or overridden versionCode
+##
+get_apex_version_code() {
+	local custom_vercode
+	if [[ -n $1 ]]; then
+		get_apexbuild_attribute "$1" pkgvercode 0 custom_vercode
+	else
+		custom_vercode="$pkgvercode"
+	fi
+
+	if [[ -n $custom_vercode ]]; then
+		printf "%s\n" "$custom_vercode"
+		return 0
+	fi
+
+	local clean_pkgver="${pkgver%%-*}"
+	clean_pkgver="${clean_pkgver%%_*}"
+	local raw_parts=()
+	local old_ifs="$IFS"
+	IFS='.' read -r -a raw_parts <<< "$clean_pkgver"
+	IFS="$old_ifs"
+
+	local ver_parts=()
+	local p
+	for p in "${raw_parts[@]}"; do
+		local num="${p%%[!0-9]*}"
+		num="${num//[!0-9]/}"
+		ver_parts+=("${num:-0}")
+	done
+
+	local major=0 minor=0 subminor=0
+	if (( ${#ver_parts[@]} == 1 )); then
+		major=0
+		minor=0
+		subminor="${ver_parts[0]:-0}"
+	elif (( ${#ver_parts[@]} == 2 )); then
+		major=0
+		minor="${ver_parts[0]:-0}"
+		subminor="${ver_parts[1]:-0}"
+	else
+		major="${ver_parts[0]:-0}"
+		minor="${ver_parts[1]:-0}"
+		subminor="${ver_parts[2]:-0}"
+	fi
+
+	major=$(( 10#${major} ))
+	minor=$(( 10#${minor} ))
+	subminor=$(( 10#${subminor} ))
+
+	local rel_int="${pkgrel%%.*}"
+	rel_int="${rel_int%%[!0-9]*}"
+	rel_int="${rel_int//[!0-9]/}"
+	rel_int=$(( 10#${rel_int:-1} ))
+
+	local base=$(( major * 1000000 + minor * 1000 + subminor ))
+	local version_code=$(( base + rel_int ))
+
+	printf "%s\n" "$version_code"
+}
+
+##
 #  usage : get_pkg_arch( [$pkgname] )
 # return : architecture of the package if available for CARCH
 ##

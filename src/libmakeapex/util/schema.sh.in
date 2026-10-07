@@ -36,7 +36,7 @@ apexbuild_schema_arrays=(arch backup checkdepends conflicts depends groups
                         "${known_hash_algos[@]/%/sums}")
 
 apexbuild_schema_strings=(api_level changelog epoch install org pkgbase pkgdesc pkgrel pkgver
-                         url vndk)
+                         pkgvercode url vndk)
 
 apexbuild_schema_arch_arrays=(checkdepends conflicts depends makedepends
                              optdepends options provides replaces source
@@ -44,7 +44,7 @@ apexbuild_schema_arch_arrays=(checkdepends conflicts depends makedepends
 
 apexbuild_schema_package_overrides=(pkgdesc arch url license groups depends
                                    optdepends provides conflicts replaces
-                                   backup options install changelog)
+                                   backup options install changelog pkgvercode)
 
 readonly -a known_hash_algos apexbuild_schema_arrays \
 	apexbuild_schema_strings apexbuild_schema_arch_arrays \
