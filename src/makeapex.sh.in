@@ -969,6 +969,21 @@ create_package() {
 					if [[ -n "$vercode_major" ]] && (( vercode_major > 0 )); then
 						echo "<meta-data android:name=\"version_code_major\" android:value=\"${vercode_major}\" />"
 					fi
+					if (( ${#provides[@]} > 0 )); then
+						echo "<meta-data android:name=\"provides\" android:value=\"${provides[*]}\" />"
+					fi
+					if (( ${#depends[@]} > 0 )); then
+						echo "<meta-data android:name=\"depends\" android:value=\"${depends[*]}\" />"
+					fi
+					if (( ${#optdepends[@]} > 0 )); then
+						echo "<meta-data android:name=\"optdepends\" android:value=\"${optdepends[*]}\" />"
+					fi
+					if (( ${#conflicts[@]} > 0 )); then
+						echo "<meta-data android:name=\"conflicts\" android:value=\"${conflicts[*]}\" />"
+					fi
+					if (( ${#replaces[@]} > 0 )); then
+						echo "<meta-data android:name=\"replaces\" android:value=\"${replaces[*]}\" />"
+					fi
 				} | add_tab
 				echo "</application>"
 			} | add_tab

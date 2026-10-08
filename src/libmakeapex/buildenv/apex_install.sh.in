@@ -19,6 +19,7 @@ buildenv_apex_install() {
 	fi
 
 	local all_pkg_paths=()
+	local all_python_paths=()
 
 	for dep in "${makedepends[@]}"; do
 		local dep_name="${dep%%@(<|>|=|>=|<=)*}"
@@ -96,6 +97,10 @@ buildenv_apex_install() {
 					if [[ -d "$prefix/share/pkgconfig" ]]; then
 						all_pkg_paths+=("$prefix/share/pkgconfig")
 					fi
+
+					while IFS= read -r pydir; do
+						[[ -d "$pydir" ]] && all_python_paths+=("$pydir")
+					done < <(find "$prefix" -type d -name "site-packages" 2>/dev/null)
 				done
 			done
 		fi
@@ -109,6 +114,16 @@ buildenv_apex_install() {
 	done
 	if [[ -n "$joined_pkg_paths" ]]; then
 		export PKG_CONFIG_PATH="$joined_pkg_paths${PKG_CONFIG_PATH:+:}$PKG_CONFIG_PATH"
+	fi
+
+	local joined_python_paths=""
+	for py_path in "${all_python_paths[@]}"; do
+		if [[ ":$PYTHONPATH:" != *":$py_path:"* && ":$joined_python_paths:" != *":$py_path:"* ]]; then
+			joined_python_paths="${joined_python_paths:+$joined_python_paths:}$py_path"
+		fi
+	done
+	if [[ -n "$joined_python_paths" ]]; then
+		export PYTHONPATH="$joined_python_paths${PYTHONPATH:+:}$PYTHONPATH"
 	fi
 
 	eval "$shellopts"

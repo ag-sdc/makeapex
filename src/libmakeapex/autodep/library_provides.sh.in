@@ -29,6 +29,7 @@ autodep_functions+=('library_provides')
 
 library_provides() {
 	if check_option "autodeps" "y"; then
+		# 1. Shared library SONAMEs
 		# shellcheck disable=SC2068
 		for lib in "${LIB_DIRS[@]}"; do
 			dir=${lib#*:}
@@ -55,5 +56,143 @@ library_provides() {
 				fi
 			done
 		done
+
+		# 2. Executables in bin/
+		if [[ -d "$pkgdir/bin" ]]; then
+			while IFS= read -r bin_file; do
+				[[ -f "$bin_file" && -x "$bin_file" ]] || continue
+				local bname="${bin_file##*/}"
+				provides+=("bin:$bname")
+			done < <(find "$pkgdir/bin" -maxdepth 1 -type f 2>/dev/null)
+		fi
+
+		# 3. Pkg-config files
+		local has_pc=0
+		while IFS= read -r pc_file; do
+			[[ -f "$pc_file" ]] || continue
+			has_pc=1
+			local pc_name="${pc_file##*/}"
+			provides+=("pc:${pc_name%.pc}")
+		done < <(find "$pkgdir" -type f -name "*.pc" 2>/dev/null)
+
+		# 4. Auto-synthesize relocatable .pc if headers exist with .so but no .pc
+		if [[ $has_pc -eq 0 && -d "$pkgdir/include" ]]; then
+			local has_headers
+			has_headers=$(find "$pkgdir/include" -type f \( -name "*.h" -o -name "*.hpp" \) 2>/dev/null | head -n 1)
+			if [[ -n "$has_headers" ]]; then
+				local has_sos
+				has_sos=$(find "$pkgdir/lib" "$pkgdir/lib64" -type f -name "*.so*" 2>/dev/null | head -n 1)
+				if [[ -n "$has_sos" ]]; then
+					mkdir -p "$pkgdir/lib/pkgconfig"
+					local synth_pc="$pkgdir/lib/pkgconfig/${pkgname}.pc"
+					local libdir_sub="lib"
+					[[ -d "$pkgdir/lib64" ]] && libdir_sub="lib64"
+					cat > "$synth_pc" <<-EOF
+						prefix=\${pcfiledir}/../..
+						exec_prefix=\${prefix}
+						libdir=\${exec_prefix}/$libdir_sub
+						includedir=\${prefix}/include
+
+						Name: $pkgname
+						Description: $pkgdesc
+						Version: $pkgver
+						Libs: -L\${libdir}
+						Cflags: -I\${includedir}
+					EOF
+					provides+=("pc:${pkgname}")
+				else
+					provides+=("header:${pkgname}")
+				fi
+			fi
+		fi
+
+		# 5. APK files
+		for apk_dir in "$pkgdir/app" "$pkgdir/priv-app"; do
+			[[ -d "$apk_dir" ]] || continue
+			while IFS= read -r apk_file; do
+				[[ -f "$apk_file" ]] || continue
+				local aname="${apk_file##*/}"
+				provides+=("apk:${aname%.apk}")
+			done < <(find "$apk_dir" -type f -name "*.apk" 2>/dev/null)
+		done
+
+		# 6. Python modules with strict version pinning
+		while IFS= read -r pydir; do
+			[[ -d "$pydir" ]] || continue
+			local pyver
+			pyver=$(echo "$pydir" | grep -oP "python[0-9]+\.[0-9]+" | head -n 1)
+			[[ -z $pyver ]] && continue
+			local short_pyver="${pyver#python}"
+			for entry in "$pydir"/*; do
+				[[ -e "$entry" ]] || continue
+				local modname="${entry##*/}"
+				if [[ $modname == *.dist-info || $modname == *.egg-info ]]; then
+					modname="${modname%%-*}"
+					modname="${modname%%.dist-info}"
+					modname="${modname%%.egg-info}"
+				elif [[ $modname == *.py ]]; then
+					modname="${modname%.py}"
+				elif [[ -d "$entry" ]]; then
+					[[ $modname == "__pycache__" ]] && continue
+				else
+					continue
+				fi
+				[[ -n $modname ]] && provides+=("py${short_pyver}:${modname}")
+			done
+		done < <(find "$pkgdir" -type d -name "site-packages" 2>/dev/null)
+
+		# 7. Java JARs
+		for jdir in "$pkgdir/share/java" "$pkgdir/javalib"; do
+			[[ -d "$jdir" ]] || continue
+			while IFS= read -r jar_file; do
+				[[ -f "$jar_file" ]] || continue
+				local jname="${jar_file##*/}"
+				provides+=("jar:${jname%.jar}")
+			done < <(find "$jdir" -type f -name "*.jar" 2>/dev/null)
+		done
+
+		# 8. Fonts
+		for fdir in "$pkgdir/fonts" "$pkgdir/etc/fonts" "$pkgdir/share/fonts"; do
+			[[ -d "$fdir" ]] || continue
+			while IFS= read -r font_file; do
+				[[ -f "$font_file" ]] || continue
+				local font_name="${font_file##*/}"
+				font_name="${font_name%.ttf}"
+				font_name="${font_name%.otf}"
+				provides+=("font:${font_name}")
+			done < <(find "$fdir" -type f \( -name "*.ttf" -o -name "*.otf" \) 2>/dev/null)
+		done
+
+		# 9. CMake configs
+		while IFS= read -r cmake_file; do
+			[[ -f "$cmake_file" ]] || continue
+			local cm_name="${cmake_file##*/}"
+			cm_name="${cm_name%Config.cmake}"
+			cm_name="${cm_name%-config.cmake}"
+			provides+=("cmake:$cm_name")
+		done < <(find "$pkgdir" -type f \( -name "*Config.cmake" -o -name "*-config.cmake" \) 2>/dev/null)
+
+		# 10. Shell completions
+		for cdir in "$pkgdir/share/bash-completion" "$pkgdir/share/zsh" "$pkgdir/share/fish"; do
+			[[ -d "$cdir" ]] || continue
+			while IFS= read -r comp_file; do
+				[[ -f "$comp_file" ]] || continue
+				local cname="${comp_file##*/}"
+				provides+=("completion:${cname}")
+			done < <(find "$cdir" -type f 2>/dev/null)
+		done
+
+		# Deduplicate provides
+		if (( ${#provides[@]} > 0 )); then
+			local -A seen_provs=()
+			local -a unique_provs=()
+			for p in "${provides[@]}"; do
+				if [[ -z ${seen_provs["$p"]} ]]; then
+					seen_provs["$p"]=1
+					unique_provs+=("$p")
+				fi
+			done
+			provides=("${unique_provs[@]}")
+		fi
 	fi
 }
