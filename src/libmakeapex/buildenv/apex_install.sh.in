@@ -64,7 +64,26 @@ buildenv_apex_install() {
 						fi
 					fi
 
-					if [[ "$CARCH" == *"64"* || "${arch[0]}" == *"64"* ]]; then
+					if [[ "$CARCH" == "x32" || "${arch[0]}" == "x32" ]]; then
+						# On x32 architecture, prioritize libx32 over lib
+						if [[ -d "$prefix/libx32" ]]; then
+							if [[ " $LDFLAGS " != *" -L$prefix/libx32 "* ]]; then
+								export LDFLAGS="$LDFLAGS -L$prefix/libx32"
+							fi
+						fi
+						if [[ -d "$prefix/lib" ]]; then
+							if [[ " $LDFLAGS " != *" -L$prefix/lib "* ]]; then
+								export LDFLAGS="$LDFLAGS -L$prefix/lib"
+							fi
+						fi
+
+						if [[ -d "$prefix/libx32/pkgconfig" ]]; then
+							all_pkg_paths+=("$prefix/libx32/pkgconfig")
+						fi
+						if [[ -d "$prefix/lib/pkgconfig" ]]; then
+							all_pkg_paths+=("$prefix/lib/pkgconfig")
+						fi
+					elif [[ "$CARCH" == *"64"* || "${arch[0]}" == *"64"* ]]; then
 						# On 64-bit architectures, prioritize lib64 over lib
 						if [[ -d "$prefix/lib64" ]]; then
 							if [[ " $LDFLAGS " != *" -L$prefix/lib64 "* ]]; then

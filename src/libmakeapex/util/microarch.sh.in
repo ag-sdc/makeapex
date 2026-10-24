@@ -26,7 +26,59 @@ MAKEAPEX_LIBRARY=${MAKEAPEX_LIBRARY:-"@libmakeapexdir@"}
 
 __microarch_init=
 _microarch_level=
+_microarch_is_not_lowest=0
 declare -a _microarch_from_lowest=()
+
+_x86_isa_levels=(i386 i486 i586 i686 pentium4 v1 v2 v3 v4)
+
+_norm_x86_level() {
+	local l="${1,,}"
+	case "$l" in
+	1|v1) echo "v1" ;;
+	2|v2) echo "v2" ;;
+	3|v3) echo "v3" ;;
+	4|v4) echo "v4" ;;
+	p4|pentium4) echo "pentium4" ;;
+	i386|i486|i586|i686) echo "$l" ;;
+	*) echo "$l" ;;
+	esac
+}
+
+_init_x86_microarch() {
+	local raw_lvl="$1"
+	local baseline_lvl="$2"
+	local norm_lvl
+	norm_lvl=$(_norm_x86_level "$raw_lvl")
+
+	local idx=-1
+	local base_idx=-1
+	local i
+	for i in "${!_x86_isa_levels[@]}"; do
+		if [[ "${_x86_isa_levels[i]}" == "$norm_lvl" ]]; then
+			idx=$i
+		fi
+		if [[ "${_x86_isa_levels[i]}" == "$baseline_lvl" ]]; then
+			base_idx=$i
+		fi
+	done
+
+	_microarch_level="$raw_lvl"
+	_microarch_from_lowest=()
+
+	if (( idx >= 0 )); then
+		if (( idx != base_idx )); then
+			_microarch_is_not_lowest=1
+		else
+			_microarch_is_not_lowest=0
+		fi
+		local j
+		for ((j = 0; j <= idx; j++)); do
+			_microarch_from_lowest+=("${_x86_isa_levels[j]}")
+		done
+	else
+		_microarch_is_not_lowest=0
+	fi
+}
 
 _cmp_int() { [[ $1 -gt $2 ]]; }
 _cmp_float() { awk -v a="$1" -v b="$2" 'BEGIN { exit !(a > b) }'; }
@@ -37,22 +89,47 @@ _add_float() { awk -v a="$1" -v b="$2" 'BEGIN { printf "%.1f", a + b }'; }
 _add_auto() { [[ $1 == *.* ]] && _add_float "$@" || _add_int "$@"; }
 
 _microarch_init() {
-	local lvl min_lvl step
-	case "$pkgarch" in
-	x86_64) lvl=${_x86_64_microarch_level:-2}; min_lvl=1; step=1 ;;
-	aarch64) lvl=${_aarch64_microarch_level:-8.2}; min_lvl=8.0; step=0.1 ;;
-	esac
+	_microarch_level=""
+	_microarch_is_not_lowest=0
+	_microarch_from_lowest=()
 
-	if _cmp_auto "$lvl" "$min_lvl"; then
-		_microarch_level=$lvl
-		local current
-		current=$(_add_auto "$min_lvl" "$step")
-		while _cmp_auto "$lvl" "$current"; do
-			_microarch_from_lowest+=("$current")
-			current=$(_add_auto "$current" "$step")
-		done
-		_microarch_from_lowest+=("$lvl")
-	fi
+	case "$pkgarch" in
+	x86_64)
+		local raw_lvl=${_x86_64_microarch_level:-2}
+		_init_x86_microarch "$raw_lvl" "v1"
+		;;
+	x86_32)
+		local raw_lvl=${_x86_32_microarch_level:-${_x86_microarch_level:-i686}}
+		_init_x86_microarch "$raw_lvl" "i386"
+		;;
+	x86)
+		local raw_lvl=${_x86_microarch_level:-${_x86_32_microarch_level:-i686}}
+		_init_x86_microarch "$raw_lvl" "i386"
+		;;
+	x32)
+		local raw_lvl=${_x32_microarch_level:-2}
+		_init_x86_microarch "$raw_lvl" "v1"
+		;;
+	aarch64)
+		local lvl=${_aarch64_microarch_level:-8.2}
+		local min_lvl=8.0
+		local step=0.1
+		if _cmp_auto "$lvl" "$min_lvl"; then
+			_microarch_level=$lvl
+			_microarch_is_not_lowest=1
+			local current
+			current=$(_add_auto "$min_lvl" "$step")
+			while _cmp_auto "$lvl" "$current"; do
+				_microarch_from_lowest+=("$current")
+				current=$(_add_auto "$current" "$step")
+			done
+			_microarch_from_lowest+=("$lvl")
+		else
+			_microarch_level=$lvl
+			_microarch_is_not_lowest=0
+		fi
+		;;
+	esac
 
 	export __microarch_init=1
 }
@@ -64,7 +141,7 @@ microarch_level() {
 
 microarch_is_not_lowest() {
 	[[ -z "$__microarch_init" ]] && _microarch_init
-	[[ -n "$_microarch_level" ]]
+	(( _microarch_is_not_lowest ))
 }
 
 microarch_from_lowest() {

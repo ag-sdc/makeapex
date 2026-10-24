@@ -59,19 +59,22 @@ This will prevent any possible name clashes with internal makeapex variables.
 	- `bundled`: Copies locally available shared libraries directly into `$pkgdir/lib`.
 	- `shared`: Dynamic linking probing system VNDK (Android 14 and lower). Automatically injects `useVndkAsDefault: true` into the manifest.
 
-*_x86_64_microarch_level* / *_aarch64_microarch_level*::
+*_x86_64_microarch_level* / *_x86_32_microarch_level* / *_x32_microarch_level* / *_aarch64_microarch_level*::
 	Specifies the required microarchitecture optimization level for virtual 
 	dependencies. This protects systems against installing mathematically-optimized
 	code sets onto non-compliant CPUs.
 	+
-	- For `x86_64` (`_x86_64_microarch_level`): Integer levels (`1`, `2`, `3`, `4`). Defaults to `2`.
+	- For `x86_64` (`_x86_64_microarch_level`), `x86_32` (`_x86_32_microarch_level`), and `x32` (`_x32_microarch_level`):
+	  * Sub-ISAs of v1: `i386`, `i486`, `i586`, `i686`, `pentium4`.
+	  * Microarchitecture levels: `1` (`v1`), `2` (`v2`), `3` (`v3`), `4` (`v4`).
+	  * Defaults: `2` for `x86_64` and `x32`; `i686` for `x86_32` (or `x86`).
 	- For `aarch64` (`_aarch64_microarch_level`): Floating values (`8.0`, `8.1`, `8.2`, `8.3`, `8.4`, `8.5`, `8.6`, `8.7`, `8.8`, `8.9`, `9.0`, `9.1`, `9.2`, `9.3`, `9.4`, `9.5`, `9.6`, `9.7`). Defaults to `8.2`.
 	+
 	If an APEXBUILD sets `_x86_64_microarch_level=3` and architecture is `x86_64`, all virtual
 	provides and depends (e.g., `_binary_bash`) are automatically prefixed to 
-	`libdummy-x86_64-v3-binary-bash.so` to strictly isolate compatibility!
+	`libdummy_binary_bash-x86_64-v3.so` to strictly isolate compatibility!
 	+
-	There are 4 standardized types of `libdummy-<type>-<name>.so` virtual categories you can use:
+	There are 4 standardized types of `libdummy_<type>_<name>.so` virtual categories you can use:
 	- `binary`: for executable binaries (e.g. `_binary_bash`)
 	- `script`: for executable scripts (e.g. `_script_makeapex`)
 	- `shared`: for shared resources/data (e.g. `_shared_terminfo`)
@@ -79,7 +82,7 @@ This will prevent any possible name clashes with internal makeapex variables.
 	+
 	**Recommendation**: For script packages or shared resource packages that do not contain 
 	compiled machine code, you should prioritize setting this to the lowest possible microarch 
-	level (e.g., `1` for `x86_64` and `8.0` for `aarch64`) to ensure maximum compatibility 
+	level (e.g., `1` for `x86_64`, `i386` for `x86_32`, and `8.0` for `aarch64`) to ensure maximum compatibility 
 	across all devices!
 
 *pkgver*::
@@ -113,7 +116,8 @@ This will prevent any possible name clashes with internal makeapex variables.
 	`arch=('aarch64' 'x86_64')`). Packages that contain no architecture specific
 	files should use `arch=('any')`.
 +
-Currently supported architectures are `x86_64` (with all microarchitectures) 
+Currently supported architectures are `x86_64` (with all microarchitectures), 
+`x86_32` (with all microarchitectures, alias `x86`), `x32` (with all microarchitectures), 
 and `aarch64` (ARMv8 and all above microarchitectures).
 
 *payload_fs*::

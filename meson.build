@@ -68,6 +68,10 @@ test('test_versioncode',
   BASH,
   args : [ join_paths(meson.project_source_root(), 'tests/test_versioncode.sh') ])
 
+test('test_x86_microarch',
+  BASH,
+  args : [ join_paths(meson.project_source_root(), 'tests/test_x86_microarch.sh') ])
+
 custom_target(
   'makeapex.conf',
   input : 'src/makeapex.conf.in',

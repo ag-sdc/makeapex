@@ -304,7 +304,7 @@ check_apex_lib_exists() {
 	done
 
 	local apex_dir
-	for apex_dir in /apex/*/lib64 /apex/*/lib; do
+	for apex_dir in /apex/*/lib64 /apex/*/lib /apex/*/libx32; do
 		if [[ -e "$apex_dir/$target_soname" ]]; then
 			return 0
 		fi
@@ -317,10 +317,10 @@ check_apex_lib_exists() {
 		IFS="$old_ifs"
 		local sp
 		for sp in "${paths[@]}"; do
-			if [[ -e "$sp/$target_soname" || -e "$sp/lib64/$target_soname" || -e "$sp/lib/$target_soname" ]]; then
+			if [[ -e "$sp/$target_soname" || -e "$sp/lib64/$target_soname" || -e "$sp/lib/$target_soname" || -e "$sp/libx32/$target_soname" ]]; then
 				return 0
 			fi
-			for apex_dir in "$sp"/*/lib64 "$sp"/*/lib; do
+			for apex_dir in "$sp"/*/lib64 "$sp"/*/lib "$sp"/*/libx32; do
 				if [[ -e "$apex_dir/$target_soname" ]]; then
 					return 0
 				fi
@@ -461,8 +461,21 @@ check_buildtime_deps_non_android() {
 				apexm_opts+=("--arch=$pkgarch")
 			fi
 			local dyn_microarch_var="_${pkgarch}_microarch_level"
-			if [[ -z "$APEX_INSTALL_MICROARCH_OVERRIDE" && -n "${!dyn_microarch_var}" ]]; then
-				local formatted_march="v${!dyn_microarch_var}"
+			local dyn_microarch_val="${!dyn_microarch_var}"
+			if [[ -z "$dyn_microarch_val" ]]; then
+				if [[ "$pkgarch" == "x86_32" || "$pkgarch" == "x86" ]]; then
+					dyn_microarch_val="${_x86_32_microarch_level:-${_x86_microarch_level:-${_x86_64_microarch_level:-${_microarch_level}}}}"
+				elif [[ "$pkgarch" == "x32" ]]; then
+					dyn_microarch_val="${_x32_microarch_level:-${_x86_64_microarch_level:-${_microarch_level}}}"
+				elif [[ "$pkgarch" == "x86_64" ]]; then
+					dyn_microarch_val="${_x86_64_microarch_level:-${_microarch_level}}"
+				fi
+			fi
+			if [[ -z "$APEX_INSTALL_MICROARCH_OVERRIDE" && -n "$dyn_microarch_val" ]]; then
+				local formatted_march="$dyn_microarch_val"
+				if [[ "$formatted_march" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+					formatted_march="v$formatted_march"
+				fi
 				apexm_opts+=("--max-microarch=${formatted_march//./_}")
 			fi
 			if [[ -z "$APEX_INSTALL_API_LEVEL_OVERRIDE" && -n "${api_level}" ]]; then
@@ -568,8 +581,21 @@ handle_deps() {
 				cmd+=("--arch=$pkgarch")
 			fi
 			local dyn_microarch_var="_${pkgarch}_microarch_level"
-			if [[ -z "$APEX_INSTALL_MICROARCH_OVERRIDE" && -n "${!dyn_microarch_var}" ]]; then
-				local formatted_march="v${!dyn_microarch_var}"
+			local dyn_microarch_val="${!dyn_microarch_var}"
+			if [[ -z "$dyn_microarch_val" ]]; then
+				if [[ "$pkgarch" == "x86_32" || "$pkgarch" == "x86" ]]; then
+					dyn_microarch_val="${_x86_32_microarch_level:-${_x86_microarch_level:-${_x86_64_microarch_level:-${_microarch_level}}}}"
+				elif [[ "$pkgarch" == "x32" ]]; then
+					dyn_microarch_val="${_x32_microarch_level:-${_x86_64_microarch_level:-${_microarch_level}}}"
+				elif [[ "$pkgarch" == "x86_64" ]]; then
+					dyn_microarch_val="${_x86_64_microarch_level:-${_microarch_level}}"
+				fi
+			fi
+			if [[ -z "$APEX_INSTALL_MICROARCH_OVERRIDE" && -n "$dyn_microarch_val" ]]; then
+				local formatted_march="$dyn_microarch_val"
+				if [[ "$formatted_march" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+					formatted_march="v$formatted_march"
+				fi
 				cmd+=("--max-microarch=${formatted_march//./_}")
 			fi
 			if [[ -z "$APEX_INSTALL_API_LEVEL_OVERRIDE" && -n "${api_level}" ]]; then
