@@ -51,7 +51,16 @@ lint_one_pkgname() {
 		error "$(gettext "%s may only contain ascii characters.")" "$type"
 		return 1
 	fi
-	if [[ $name = *[^[:alnum:]+_.@-]* ]]; then
+	# Capability targets (pc:, cmake:, bin:, alias:, py3.x:, completion:x:y, ...)
+	# use ':' as a namespace separator; allow in dependency/provides/conflicts
+	# contexts but keep strict validation for pkgname/pkgbase identifiers.
+	if [[ $type != pkgname && $type != pkgbase ]]; then
+		if [[ $name = *[^[:alnum:]+_.@:-]* ]]; then
+			error "$(gettext "%s contains invalid characters: '%s'")" \
+					"$type" "${name//[[:alnum:]+_.@:-]}"
+			ret=1
+		fi
+	elif [[ $name = *[^[:alnum:]+_.@-]* ]]; then
 		error "$(gettext "%s contains invalid characters: '%s'")" \
 				"$type" "${name//[[:alnum:]+_.@-]}"
 		ret=1
