@@ -26,6 +26,8 @@ sed \
   -e "s|@AWK[@]|@AWK@|g" \
   -e "s|@PROTOC[@]|@PROTOC@|g" \
   -e "s|@SEDINPLACE[@]|@SEDINPLACE@|g" \
+  -e "s|@INODECMD[@]|@INODECMD@|g" \
+  -e "s|@DEBUGSUFFIX[@]|@DEBUGSUFFIX@|g" \
   "$input" >"$output"
 
 if [[ $mode ]]; then

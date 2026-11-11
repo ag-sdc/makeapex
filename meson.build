@@ -46,6 +46,8 @@ substs.set('PROTOC', PROTOC.full_path())
 substs.set('BUILDSCRIPT', 'APEXBUILD')
 substs.set('BSDTAR_NO_READ_SPARSE', '')
 substs.set('SEDINPLACE', 'sed --follow-symlinks -i')
+substs.set('INODECMD', 'stat -c \'%i %n\'')
+substs.set('DEBUGSUFFIX', 'debug')
 
 SCRIPT_EDITOR = find_program(configure_file(
   input : join_paths(meson.project_source_root(), 'build-aux/edit-script.sh.in'),
@@ -71,6 +73,10 @@ test('test_versioncode',
 test('test_x86_microarch',
   BASH,
   args : [ join_paths(meson.project_source_root(), 'tests/test_x86_microarch.sh') ])
+
+test('test_strip_default',
+  BASH,
+  args : [ join_paths(meson.project_source_root(), 'tests/test_strip_default.sh') ])
 
 custom_target(
   'makeapex.conf',

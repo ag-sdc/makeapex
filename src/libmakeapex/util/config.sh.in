@@ -77,6 +77,12 @@ load_makeapex_config() {
 		done
 	)
 
+	# Default packaging and strip behavior (matches Arch makepkg semantics, keeping libtool and staticlibs for extractive/-dev APEXes)
+	OPTIONS=(strip docs libtool staticlibs emptydirs zipman purge !debug !lto !autodeps)
+	STRIP_BINARIES="--strip-all"
+	STRIP_SHARED="--strip-unneeded"
+	STRIP_STATIC="--strip-debug"
+
 	source_makeapex_config "$MAKEAPEX_CONF"
 
 	# prevent altering these directly

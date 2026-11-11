@@ -123,20 +123,32 @@ collect_debug_symbols() {
 	fi
 }
 
+_resolve_strip_cmd() {
+	local cmd="${STRIP:-}"
+	if [[ -z $cmd ]]; then
+		cmd=$(command -v llvm-strip || command -v strip)
+	fi
+	printf '%s\n' "$cmd"
+}
+
 safe_strip_file(){
 	local binary=$1; shift
+	local strip_cmd
+	strip_cmd=$(_resolve_strip_cmd)
 	local tempfile; tempfile=$(mktemp "$binary.XXXXXX")
-	if strip "$@" "$binary" -o "$tempfile"; then
+	if "$strip_cmd" "$@" "$binary" -o "$tempfile"; then
 		cat "$tempfile" > "$binary"
 	fi
 	rm -f "$tempfile"
 }
 
 safe_strip_lto() {
-	local binary=$1;
+	local binary=$1
+	local strip_cmd
+	strip_cmd=$(_resolve_strip_cmd)
 
 	local tempfile; tempfile=$(mktemp "$binary.XXXXXX")
-	if strip -R .gnu.lto_* -R .gnu.debuglto_* -N __gnu_lto_v1 "$binary" -o "$tempfile"; then
+	if "$strip_cmd" -R .gnu.lto_* -R .gnu.debuglto_* -N __gnu_lto_v1 "$binary" -o "$tempfile"; then
 		cat "$tempfile" > "$binary"
 	fi
 	rm -f "$tempfile"
@@ -177,16 +189,18 @@ process_file_stripping() {
 			return ;;
 	esac
 	(( ! STATICOBJ )) && collect_debug_symbols "$binary"
-	safe_strip_file "$binary" "${strip_flags}"
+	# shellcheck disable=SC2086
+	safe_strip_file "$binary" $strip_flags
 	(( STATICOBJ )) && safe_strip_lto "$binary"
 }
 
 tidy_strip() {
 	if check_option "strip" "y"; then
 		msg2 "$(gettext "Stripping unneeded symbols from binaries and libraries...")"
-		# make sure library stripping variables are defined to prevent excess stripping
-		[[ -z ${STRIP_SHARED+x} ]] && STRIP_SHARED="-S"
-		[[ -z ${STRIP_STATIC+x} ]] && STRIP_STATIC="-S"
+		# make sure stripping variables are defined to prevent empty/excess flags
+		[[ -z ${STRIP_BINARIES+x} ]] && STRIP_BINARIES="--strip-all"
+		[[ -z ${STRIP_SHARED+x} ]] && STRIP_SHARED="--strip-unneeded"
+		[[ -z ${STRIP_STATIC+x} ]] && STRIP_STATIC="--strip-debug"
 
 		if check_option "debug" "y"; then
 			dbgdir="$pkgdirbase/$pkgbase-@DEBUGSUFFIX@/lib/debug"
@@ -200,6 +214,7 @@ tidy_strip() {
 			set -E
 			(
 				local jobs binary
+				local nproc=${NPROC:-1}
 
 				while IFS= read -rd '' binary ; do
 					# Be sure to keep the number of concurrently running processes less
@@ -207,7 +222,7 @@ tidy_strip() {
 					# shellcheck disable=SC2207
 					jobs=($(jobs -p))
 					# shellcheck disable=SC2004
-					(( ${#jobs[@]} >= $NPROC )) && wait -n "${jobs[@]}"
+					(( ${#jobs[@]} >= nproc )) && wait -n "${jobs[@]}"
 
 					process_file_stripping "$binary" &
 				done < <(find . -type f -perm -u+w -links 1 -print0 2>/dev/null)

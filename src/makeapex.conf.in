@@ -9,6 +9,14 @@ compress_apex="false"
 # Build environment options
 BUILDENV=(color check !sign)
 
+# Packaging options (strip binaries/libraries by default; keep libtool and staticlibs for extractive/-dev APEXes)
+OPTIONS=(strip docs libtool staticlibs emptydirs zipman purge !debug !lto !autodeps)
+
+# Strip flags used when 'strip' is enabled in OPTIONS
+STRIP_BINARIES="--strip-all"
+STRIP_SHARED="--strip-unneeded"
+STRIP_STATIC="--strip-debug"
+
 #
 # Privilege escalation command
 #

@@ -39,7 +39,7 @@ readonly -a packaging_options tidy_remove tidy_modify
 
 
 tidy_install() {
-	cd_safe "$pkgdir"
+	cd_safe "${pkgdirprefix:-$pkgdir}"
 	msg "$(gettext "Tidying install...")"
 
 	# options that remove unwanted files

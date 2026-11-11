@@ -1412,7 +1412,7 @@ run_single_packaging() {
 	fi
 	pkgnamedir="$pkgdirbase/$1"
 	pkgdirprefix="$pkgdirbase/apex/$org.${1//-/.}"
-	mkdir -p "$pkgnamedir" "$pkgdirprefix"
+	mkdir -p "$pkgdir" "$pkgnamedir" "$pkgdirprefix"
 	if [[ -n $1 ]] || ((PKGFUNC)); then
 		run_package "$1"
 	fi

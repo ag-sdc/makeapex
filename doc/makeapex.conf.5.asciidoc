@@ -73,12 +73,16 @@ Options
 	or disable an option, simply remove or add an ``!'' at the front of the
 	option.
 
-**OPTIONS=(**!strip docs libtool staticlibs emptydirs ...**)**::
+**OPTIONS=(**strip docs libtool staticlibs emptydirs ...**)**::
 	This array contains options that affect default packaging. They are
 	equivalent to options that can be placed in the APEXBUILD; the defaults are
 	shown here. All options should always be left in the array; to enable or
 	disable an option, simply remove or add an ``!'' at the front of the
 	option.
+
+**STRIP_BINARIES=**"--strip-all", **STRIP_SHARED=**"--strip-unneeded", **STRIP_STATIC=**"--strip-debug"::
+	Options to be used when stripping binaries, shared libraries, and static
+	libraries respectively when `strip` is enabled in **OPTIONS**.
 
 **INTEGRITY_CHECK=(**check1 ...**)**::
 	File integrity checks to use. Multiple checks may be specified; this
