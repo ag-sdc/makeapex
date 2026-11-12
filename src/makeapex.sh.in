@@ -290,59 +290,63 @@ check_apex_lib_exists() {
 	local target_soname=$1
 	local dep_name=$2
 
-	local search_paths=(
-		"/system/lib64" "/system/lib"
-		"/system_ext/lib64" "/system_ext/lib"
-		"/product/lib64" "/product/lib"
-		"/apex/com.android.runtime/lib64/bionic" "/apex/com.android.runtime/lib/bionic"
-	)
-	local p
-	for p in "${search_paths[@]}"; do
-		if [[ -e "$p/$target_soname" ]]; then
-			return 0
-		fi
-	done
-
-	local apex_dir
-	for apex_dir in /apex/*/lib64 /apex/*/lib /apex/*/libx32; do
-		if [[ -e "$apex_dir/$target_soname" ]]; then
-			return 0
-		fi
-	done
-
-	if [[ -n "$APEX_SEARCH_PATH" ]]; then
-		local old_ifs="$IFS"
-		IFS=':'
-		local paths=($APEX_SEARCH_PATH)
-		IFS="$old_ifs"
-		local sp
-		for sp in "${paths[@]}"; do
-			if [[ -e "$sp/$target_soname" || -e "$sp/lib64/$target_soname" || -e "$sp/lib/$target_soname" || -e "$sp/libx32/$target_soname" ]]; then
+	if [[ "$dep_name" != *:* ]]; then
+		local search_paths=(
+			"/system/lib64" "/system/lib"
+			"/system_ext/lib64" "/system_ext/lib"
+			"/product/lib64" "/product/lib"
+			"/apex/com.android.runtime/lib64/bionic" "/apex/com.android.runtime/lib/bionic"
+		)
+		local p
+		for p in "${search_paths[@]}"; do
+			if [[ -e "$p/$target_soname" ]]; then
 				return 0
 			fi
-			for apex_dir in "$sp"/*/lib64 "$sp"/*/lib "$sp"/*/libx32; do
-				if [[ -e "$apex_dir/$target_soname" ]]; then
-					return 0
-				fi
-			done
+		done
+
+		local apex_roots=() r
+		_apex_get_search_roots apex_roots
+		for r in "${apex_roots[@]}"; do
+			if [[ -e "$r/$target_soname" || -e "$r/lib64/$target_soname" || -e "$r/lib/$target_soname" || -e "$r/libx32/$target_soname" ]]; then
+				return 0
+			fi
+		done
+	elif [[ "$dep_name" == bin:* ]]; then
+		local bin_target="${dep_name#bin:}"
+		local apex_roots=() r
+		_apex_get_search_roots apex_roots
+		for r in "${apex_roots[@]}"; do
+			if [[ -e "$r/bin/$bin_target" || -e "${r%/mnt}/bin/$bin_target" ]]; then
+				return 0
+			fi
 		done
 	fi
 
-	if command -v apexm >/dev/null 2>&1; then
-		local apex_pkg
-		apex_pkg=$(apexm local --name "$target_soname" 2>/dev/null)
-		if [[ -z "$apex_pkg" && "$dep_name" != "$target_soname" ]]; then
-			apex_pkg=$(apexm local --name "$dep_name" 2>/dev/null)
-		fi
-		if [[ -z "$apex_pkg" && "$target_soname" == *.so* ]]; then
-			apex_pkg=$(apexm local --name "${target_soname%.so*}" 2>/dev/null)
-		fi
-		if [[ -n "$apex_pkg" ]]; then
-			return 0
-		fi
+	local resolved_prefixes=() resolved_pc_fallbacks=()
+	_apex_resolve_dep_prefixes "$dep_name" resolved_prefixes resolved_pc_fallbacks "$target_soname" "all"
+	if ((${#resolved_prefixes[@]} > 0 || ${#resolved_pc_fallbacks[@]} > 0)); then
+		return 0
 	fi
 
 	return 1
+}
+
+_resolve_dep_target_soname() {
+	local dep_name=$1
+	if [[ "$dep_name" == _* ]]; then
+		if [[ "$dep_name" =~ ^_(.+)-([^-]+)-([^-]+)$ ]]; then
+			local soname="${BASH_REMATCH[1]}"
+			local d_arch="${BASH_REMATCH[2]}"
+			local d_march="${BASH_REMATCH[3]}"
+			printf '%s\n' "libdummy_${soname//-/_}-${d_arch}-${d_march}.so"
+		else
+			printf '%s\n' "libdummy${dep_name//-/_}.so"
+		fi
+	elif [[ "$dep_name" != *.so* && "$dep_name" != *:* ]]; then
+		printf '%s\n' "${dep_name}.so"
+	else
+		printf '%s\n' "$dep_name"
+	fi
 }
 
 check_deps() {
@@ -365,23 +369,14 @@ check_deps() {
 	local missing=()
 	for dep in "$@"; do
 		local dep_name="${dep%%@(<|>|=|>=|<=)*}"
-		local target_soname="$dep_name"
-		if [[ "$dep_name" == _* ]]; then
-			if [[ "$dep_name" =~ ^_(.+)-([^-]+)-([^-]+)$ ]]; then
-				local soname="${BASH_REMATCH[1]}"
-				local d_arch="${BASH_REMATCH[2]}"
-				local d_march="${BASH_REMATCH[3]}"
-				target_soname="libdummy_${soname//-/_}-${d_arch}-${d_march}.so"
-			else
-				target_soname="libdummy${dep_name//-/_}.so"
-			fi
-		elif [[ "$dep_name" != *.so* ]]; then
-			# If it doesn't end in .so and isn't virtual, check PATH only on Android (bionic) host
+		# If it doesn't end in .so and isn't virtual/capability, check PATH only on Android (bionic) host
+		if [[ "$dep_name" != _* && "$dep_name" != *.so* && "$dep_name" != *:* ]]; then
 			if ((is_bionic)) && command -v "$dep_name" >/dev/null 2>&1; then
 				continue
 			fi
-			target_soname="$dep_name.so"
 		fi
+		local target_soname
+		target_soname=$(_resolve_dep_target_soname "$dep_name")
 
 		if ! check_apex_lib_exists "$target_soname" "$dep_name"; then
 			missing+=("$dep")
@@ -428,20 +423,8 @@ check_buildtime_deps_non_android() {
 	local dep
 	for dep in "${blddeps[@]}"; do
 		local dep_name="${dep%%@(<|>|=|>=|<=)*}"
-		local target_soname="$dep_name"
-		if [[ "$dep_name" == _* ]]; then
-			if [[ "$dep_name" =~ ^_(.+)-([^-]+)-([^-]+)$ ]]; then
-				local soname="${BASH_REMATCH[1]}"
-				local d_arch="${BASH_REMATCH[2]}"
-				local d_march="${BASH_REMATCH[3]}"
-				target_soname="libdummy_${soname//-/_}-${d_arch}-${d_march}.so"
-			else
-				target_soname="libdummy${dep_name//-/_}.so"
-			fi
-		elif [[ "$dep_name" != *.so* ]]; then
-			# All APEX dependencies are library-based (.so); do NOT check host PATH
-			target_soname="$dep_name.so"
-		fi
+		local target_soname
+		target_soname=$(_resolve_dep_target_soname "$dep_name")
 
 		if ! check_apex_lib_exists "$target_soname" "$dep_name"; then
 			missing+=("$dep")
@@ -487,19 +470,8 @@ check_buildtime_deps_non_android() {
 
 			for dep in "${missing[@]}"; do
 				local dep_name="${dep%%@(<|>|=|>=|<=)*}"
-				local target_soname="$dep_name"
-				if [[ "$dep_name" == _* ]]; then
-					if [[ "$dep_name" =~ ^_(.+)-([^-]+)-([^-]+)$ ]]; then
-						local soname="${BASH_REMATCH[1]}"
-						local d_arch="${BASH_REMATCH[2]}"
-						local d_march="${BASH_REMATCH[3]}"
-						target_soname="libdummy_${soname//-/_}-${d_arch}-${d_march}.so"
-					else
-						target_soname="libdummy${dep_name//-/_}.so"
-					fi
-				elif [[ "$dep_name" != *.so* ]]; then
-					target_soname="$dep_name.so"
-				fi
+				local target_soname
+				target_soname=$(_resolve_dep_target_soname "$dep_name")
 
 				local found=0
 				local target_to_install=""

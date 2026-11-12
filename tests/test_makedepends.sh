@@ -409,27 +409,32 @@ if ! echo "$AVAIL_OUTPUT" | grep -q "Sources are ready."; then
     echo "FAILED: makeapex did not continue successfully after installing available makedepends"
     exit 1
 fi
-# Test 9: Verify buildenv_apex_install handling of companion .dev APEX and lib64 vs lib prioritization
-echo "[Test 9] buildenv_apex_install .dev APEX and lib64 vs lib prioritization"
+# Test 9: Verify buildenv_apex_install scans standard candidate only (avoiding .dev auto-expansion / .dev.dev) and prioritizes lib64/libx32 over lib
+echo "[Test 9] buildenv_apex_install standard-only candidate and lib64/libx32 vs lib prioritization"
 
 TEST9_OUT=$(bash -c "
 export MAKEAPEX_LIBRARY='$LIBMAKEAPEX_DIR'
 source '$LIBMAKEAPEX_DIR/buildenv.sh'
 
 MOCK_ROOT='$TEST_TMPDIR/mock_apex_root'
-mkdir -p \"\$MOCK_ROOT/com.test.pkg.dev/include\"
-mkdir -p \"\$MOCK_ROOT/com.test.pkg.dev/lib64/pkgconfig\"
-mkdir -p \"\$MOCK_ROOT/com.test.pkg.dev/lib/pkgconfig\"
-mkdir -p \"\$MOCK_ROOT/com.test.pkg.dev/share/pkgconfig\"
+mkdir -p \"\$MOCK_ROOT/com.test.pkg/include\"
 mkdir -p \"\$MOCK_ROOT/com.test.pkg/lib64/pkgconfig\"
 mkdir -p \"\$MOCK_ROOT/com.test.pkg/lib/pkgconfig\"
+mkdir -p \"\$MOCK_ROOT/com.test.pkg/libx32/pkgconfig\"
+mkdir -p \"\$MOCK_ROOT/com.test.pkg/share/pkgconfig\"
+mkdir -p \"\$MOCK_ROOT/com.test.pkg.dev/include\"
+mkdir -p \"\$MOCK_ROOT/com.test.pkg.dev/lib64/pkgconfig\"
+mkdir -p \"\$MOCK_ROOT/com.test.pkg.dev.dev/include\"
+mkdir -p \"\$MOCK_ROOT/com.test.pkg.dev.dev/lib64/pkgconfig\"
 
 export APEX_SEARCH_PATH=\"\$MOCK_ROOT\"
 export CARCH=\"x86_64\"
 arch=('x86_64')
+depends=()
 makedepends=('com.test.pkg')
+checkdepends=()
 
-# 9a: 64-bit environment with companion .dev
+# 9a: 64-bit environment with standard package only (must NOT scan .dev companion)
 CFLAGS=\"\"
 CXXFLAGS=\"\"
 LDFLAGS=\"\"
@@ -441,7 +446,19 @@ echo \"64BIT_CFLAGS=\$CFLAGS\"
 echo \"64BIT_LDFLAGS=\$LDFLAGS\"
 echo \"64BIT_PKG_CONFIG_PATH=\$PKG_CONFIG_PATH\"
 
-# 9b: 32-bit environment
+# 9b: Explicit .dev package in makedepends (must scan .dev only, NOT base or .dev.dev)
+makedepends=('com.test.pkg.dev')
+CFLAGS=\"\"
+CXXFLAGS=\"\"
+LDFLAGS=\"\"
+PKG_CONFIG_PATH=\"/usr/lib/pkgconfig\"
+
+buildenv_apex_install
+
+echo \"DEV_ONLY_CFLAGS=\$CFLAGS\"
+echo \"DEV_ONLY_PKG_CONFIG_PATH=\$PKG_CONFIG_PATH\"
+
+# 9c: 32-bit environment
 CARCH=\"armv7a\"
 arch=('armv7a')
 makedepends=('com.test.pkg')
@@ -454,52 +471,82 @@ buildenv_apex_install
 
 echo \"32BIT_LDFLAGS=\$LDFLAGS\"
 echo \"32BIT_PKG_CONFIG_PATH=\$PKG_CONFIG_PATH\"
+
+# 9d: x32 environment (libx32 prioritized over lib, lib64 excluded)
+CARCH=\"x32\"
+arch=('x32')
+makedepends=('com.test.pkg')
+CFLAGS=\"\"
+CXXFLAGS=\"\"
+LDFLAGS=\"\"
+PKG_CONFIG_PATH=\"/usr/lib/pkgconfig\"
+
+buildenv_apex_install
+
+echo \"X32_LDFLAGS=\$LDFLAGS\"
+echo \"X32_PKG_CONFIG_PATH=\$PKG_CONFIG_PATH\"
 " 2>&1)
 
 echo "$TEST9_OUT"
 
-# Assert 64-bit include in CFLAGS
-if ! echo "$TEST9_OUT" | grep -q "64BIT_CFLAGS=.*-I$TEST_TMPDIR/mock_apex_root/com.test.pkg.dev/include"; then
-    echo "FAILED: 64BIT_CFLAGS missing companion .dev include path"
+# 9a assertions: standard candidate only, no .dev
+CFLAGS_LINE=$(echo "$TEST9_OUT" | grep "^64BIT_CFLAGS=")
+if ! echo "$CFLAGS_LINE" | grep -q -- "-I$TEST_TMPDIR/mock_apex_root/com.test.pkg/include"; then
+    echo "FAILED: 64BIT_CFLAGS missing standard package include path"
+    exit 1
+fi
+if echo "$CFLAGS_LINE" | grep -q "com.test.pkg.dev"; then
+    echo "FAILED: 64BIT_CFLAGS should not scan .dev companion when makedepends only lists com.test.pkg"
     exit 1
 fi
 
-# Assert 64-bit LDFLAGS ordering: lib64 must precede lib
 LDFLAGS_LINE=$(echo "$TEST9_OUT" | grep "^64BIT_LDFLAGS=")
-DEV_LIB64_POS=$(echo "$LDFLAGS_LINE" | awk '{print index($0, "com.test.pkg.dev/lib64")}')
-DEV_LIB_POS=$(echo "$LDFLAGS_LINE" | awk '{print index($0, "com.test.pkg.dev/lib ")}')
-if (( DEV_LIB64_POS == 0 || DEV_LIB_POS == 0 || DEV_LIB64_POS >= DEV_LIB_POS )); then
-    echo "FAILED: In 64BIT_LDFLAGS, com.test.pkg.dev/lib64 must precede com.test.pkg.dev/lib"
+MAIN_LIB64_POS=$(echo "$LDFLAGS_LINE" | awk '{print index($0, "com.test.pkg/lib64")}')
+MAIN_LIB_POS=$(echo "${LDFLAGS_LINE} " | awk '{print index($0, "com.test.pkg/lib ")}')
+if (( MAIN_LIB64_POS == 0 || MAIN_LIB_POS == 0 || MAIN_LIB64_POS >= MAIN_LIB_POS )); then
+    echo "FAILED: In 64BIT_LDFLAGS, com.test.pkg/lib64 must precede com.test.pkg/lib"
     exit 1
 fi
 
-# Assert 64-bit PKG_CONFIG_PATH ordering:
-# .dev/lib64/pkgconfig before .dev/lib/pkgconfig before .dev/share/pkgconfig before com.test.pkg/lib64 before /usr/lib/pkgconfig
 PCP_LINE=$(echo "$TEST9_OUT" | grep "^64BIT_PKG_CONFIG_PATH=")
-P_DEV_LIB64=$(echo "$PCP_LINE" | awk '{print index($0, "com.test.pkg.dev/lib64/pkgconfig")}')
-P_DEV_LIB=$(echo "$PCP_LINE" | awk '{print index($0, "com.test.pkg.dev/lib/pkgconfig")}')
-P_DEV_SHARE=$(echo "$PCP_LINE" | awk '{print index($0, "com.test.pkg.dev/share/pkgconfig")}')
+if echo "$PCP_LINE" | grep -q "com.test.pkg.dev"; then
+    echo "FAILED: 64BIT_PKG_CONFIG_PATH should not include com.test.pkg.dev"
+    exit 1
+fi
 P_MAIN_LIB64=$(echo "$PCP_LINE" | awk '{print index($0, "com.test.pkg/lib64/pkgconfig")}')
+P_MAIN_LIB=$(echo "$PCP_LINE" | awk '{print index($0, "com.test.pkg/lib/pkgconfig")}')
+P_MAIN_SHARE=$(echo "$PCP_LINE" | awk '{print index($0, "com.test.pkg/share/pkgconfig")}')
 P_SYS=$(echo "$PCP_LINE" | awk '{print index($0, "/usr/lib/pkgconfig")}')
 
-if (( P_DEV_LIB64 == 0 || P_DEV_LIB == 0 || P_DEV_LIB64 >= P_DEV_LIB )); then
-    echo "FAILED: In PKG_CONFIG_PATH, .dev/lib64/pkgconfig must precede .dev/lib/pkgconfig"
+if (( P_MAIN_LIB64 == 0 || P_MAIN_LIB == 0 || P_MAIN_LIB64 >= P_MAIN_LIB )); then
+    echo "FAILED: In PKG_CONFIG_PATH, com.test.pkg/lib64/pkgconfig must precede com.test.pkg/lib/pkgconfig"
     exit 1
 fi
-if (( P_DEV_SHARE == 0 || P_DEV_LIB >= P_DEV_SHARE )); then
-    echo "FAILED: In PKG_CONFIG_PATH, .dev/lib/pkgconfig must precede .dev/share/pkgconfig"
+if (( P_MAIN_SHARE == 0 || P_MAIN_LIB >= P_MAIN_SHARE )); then
+    echo "FAILED: In PKG_CONFIG_PATH, com.test.pkg/lib/pkgconfig must precede com.test.pkg/share/pkgconfig"
     exit 1
 fi
-if (( P_MAIN_LIB64 == 0 || P_DEV_SHARE >= P_MAIN_LIB64 )); then
-    echo "FAILED: In PKG_CONFIG_PATH, .dev paths must precede companion main package paths"
-    exit 1
-fi
-if (( P_SYS == 0 || P_MAIN_LIB64 >= P_SYS )); then
+if (( P_SYS == 0 || P_MAIN_SHARE >= P_SYS )); then
     echo "FAILED: In PKG_CONFIG_PATH, apex paths must precede system /usr/lib/pkgconfig"
     exit 1
 fi
 
-# Assert 32-bit: lib64 must NOT be present
+# 9b assertions: explicit .dev only, no .dev.dev or non-.dev base
+DEV_PCP_LINE=$(echo "$TEST9_OUT" | grep "^DEV_ONLY_PKG_CONFIG_PATH=")
+if ! echo "$DEV_PCP_LINE" | grep -q "com.test.pkg.dev/lib64/pkgconfig"; then
+    echo "FAILED: DEV_ONLY_PKG_CONFIG_PATH missing com.test.pkg.dev/lib64/pkgconfig"
+    exit 1
+fi
+if echo "$DEV_PCP_LINE" | grep -q "com.test.pkg/lib"; then
+    echo "FAILED: DEV_ONLY_PKG_CONFIG_PATH should not scan base com.test.pkg"
+    exit 1
+fi
+if echo "$DEV_PCP_LINE" | grep -q "com.test.pkg.dev.dev"; then
+    echo "FAILED: DEV_ONLY_PKG_CONFIG_PATH must never touch com.test.pkg.dev.dev"
+    exit 1
+fi
+
+# 9c assertions: 32-bit must NOT contain lib64
 LDFLAGS_32_LINE=$(echo "$TEST9_OUT" | grep "^32BIT_LDFLAGS=")
 PCP_32_LINE=$(echo "$TEST9_OUT" | grep "^32BIT_PKG_CONFIG_PATH=")
 if echo "$LDFLAGS_32_LINE" | grep -q "lib64"; then
@@ -519,7 +566,99 @@ if ! echo "$PCP_32_LINE" | grep -q "lib/pkgconfig"; then
     exit 1
 fi
 
-echo "PASSED: buildenv_apex_install correctly handles companion .dev APEX and prioritizes lib64 over lib"
+# 9d assertions: x32 prioritizes libx32 over lib
+X32_PCP_LINE=$(echo "$TEST9_OUT" | grep "^X32_PKG_CONFIG_PATH=")
+P_X32_LIB=$(echo "$X32_PCP_LINE" | awk '{print index($0, "com.test.pkg/libx32/pkgconfig")}')
+P_X32_BASE=$(echo "$X32_PCP_LINE" | awk '{print index($0, "com.test.pkg/lib/pkgconfig")}')
+if (( P_X32_LIB == 0 || P_X32_BASE == 0 || P_X32_LIB >= P_X32_BASE )); then
+    echo "FAILED: On x32, libx32/pkgconfig must precede lib/pkgconfig"
+    exit 1
+fi
+
+echo "PASSED: buildenv_apex_install scans standard candidate only (no .dev.dev) and prioritizes lib64/libx32 over lib"
+
+# Test 10: End-to-end build() receives PKG_CONFIG_PATH, CFLAGS, LDFLAGS for depends=('libz.so') + makedepends=('pc:zlib')
+echo "[Test 10] End-to-end PKG_CONFIG_PATH propagation to build() with depends=libz.so and makedepends=pc:zlib"
+TEST10_ROOT="$TEST_TMPDIR/test10_apex"
+TEST10_PKG="$TEST_TMPDIR/test10_pkg"
+mkdir -p "$TEST10_ROOT/org.blisslabs.ag.zlib.ng/lib64"
+mkdir -p "$TEST10_ROOT/org.blisslabs.ag.zlib.ng.dev/include"
+mkdir -p "$TEST10_ROOT/org.blisslabs.ag.zlib.ng.dev/lib64/pkgconfig"
+mkdir -p "$TEST10_ROOT/org.blisslabs.ag.zlib.ng.dev.dev/lib64/pkgconfig"
+mkdir -p "$TEST10_PKG"
+
+touch "$TEST10_ROOT/org.blisslabs.ag.zlib.ng/lib64/libz.so"
+touch "$TEST10_ROOT/org.blisslabs.ag.zlib.ng.dev/include/zlib.h"
+cat > "$TEST10_ROOT/org.blisslabs.ag.zlib.ng.dev/lib64/pkgconfig/zlib.pc" << 'EOF'
+Name: zlib
+Description: zlib compression library
+Version: 1.3.1
+Libs: -lz
+Cflags: -I${pcfiledir}/../../include
+EOF
+cat > "$TEST10_ROOT/org.blisslabs.ag.zlib.ng.dev.dev/lib64/pkgconfig/trap.pc" << 'EOF'
+Name: trap
+Description: trap
+Version: 9.9.9
+EOF
+
+TEST10_CONF="$TEST_TMPDIR/test10_makeapex.conf"
+cat "$BUILD_DIR/makeapex.conf" > "$TEST10_CONF"
+echo "PACMAN_AUTH=(false)" >> "$TEST10_CONF"
+
+cat > "$TEST10_PKG/APEXBUILD" << 'EOF'
+pkgname=com.test.pczlib
+pkgver=1.0.0
+pkgrel=1
+arch=('x86_64')
+payload_fs=erofs
+options=('!buildflags')
+depends=('libz.so')
+makedepends=('pc:zlib')
+
+build() {
+	echo "BUILD_PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
+	echo "BUILD_CFLAGS=$CFLAGS"
+	echo "BUILD_LDFLAGS=$LDFLAGS"
+	if command -v pkg-config >/dev/null 2>&1; then
+		echo "BUILD_PC_ZLIB_VER=$(pkg-config --modversion zlib)"
+	fi
+}
+
+package() {
+	mkdir -p "$pkgdir/usr"
+}
+EOF
+
+cd "$TEST10_PKG"
+TEST10_OUT=$(APEX_SEARCH_PATH="$TEST10_ROOT" PKG_CONFIG_PATH="" "$MAKEAPEX_BIN" --config "$TEST10_CONF" --noarchive -f 2>&1)
+echo "$TEST10_OUT"
+
+if echo "$TEST10_OUT" | grep -q "Unmet make dependencies:"; then
+    echo "FAILED: pc:zlib should be detected as satisfied in APEX_SEARCH_PATH"
+    exit 1
+fi
+if ! echo "$TEST10_OUT" | grep "^BUILD_PKG_CONFIG_PATH=" | grep -q "$TEST10_ROOT/org.blisslabs.ag.zlib.ng.dev/lib64/pkgconfig"; then
+    echo "FAILED: PKG_CONFIG_PATH inside build() did not contain org.blisslabs.ag.zlib.ng.dev/lib64/pkgconfig"
+    exit 1
+fi
+if echo "$TEST10_OUT" | grep "^BUILD_PKG_CONFIG_PATH=" | grep -q "org.blisslabs.ag.zlib.ng.dev.dev"; then
+    echo "FAILED: PKG_CONFIG_PATH inside build() should never include org.blisslabs.ag.zlib.ng.dev.dev"
+    exit 1
+fi
+if ! echo "$TEST10_OUT" | grep "^BUILD_CFLAGS=" | grep -q -- "-I$TEST10_ROOT/org.blisslabs.ag.zlib.ng.dev/include"; then
+    echo "FAILED: CFLAGS inside build() did not contain org.blisslabs.ag.zlib.ng.dev/include"
+    exit 1
+fi
+if ! echo "$TEST10_OUT" | grep "^BUILD_LDFLAGS=" | grep -q -- "-L$TEST10_ROOT/org.blisslabs.ag.zlib.ng/lib64"; then
+    echo "FAILED: LDFLAGS inside build() did not contain org.blisslabs.ag.zlib.ng/lib64 from depends=libz.so"
+    exit 1
+fi
+if command -v pkg-config >/dev/null 2>&1 && ! echo "$TEST10_OUT" | grep -q "^BUILD_PC_ZLIB_VER=1.3.1$"; then
+    echo "FAILED: pkg-config --modversion zlib inside build() did not resolve 1.3.1"
+    exit 1
+fi
+echo "PASSED: End-to-end PKG_CONFIG_PATH, CFLAGS, and LDFLAGS reached build() for depends=libz.so and makedepends=pc:zlib"
 
 echo "=== All tests PASSED successfully ==="
 

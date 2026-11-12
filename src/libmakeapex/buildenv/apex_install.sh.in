@@ -4,126 +4,246 @@
 [[ -n "$LIBMAKEAPEX_BUILDENV_APEX_INSTALL_SH" ]] && return
 LIBMAKEAPEX_BUILDENV_APEX_INSTALL_SH=1
 
-buildenv_apex_install() {
-	local shellopts
-	shellopts=$(shopt -p extglob)
-	shopt -s extglob
-
-	local base_roots=("/apex")
+_apex_get_search_roots() {
+	local -n _ap_roots_out=$1
+	_ap_roots_out=()
 	if [[ -n "$APEX_SEARCH_PATH" ]]; then
-		local old_ifs="$IFS"
+		local _ap_ifs="$IFS"
 		IFS=':'
-		local search_dirs=($APEX_SEARCH_PATH)
-		IFS="$old_ifs"
-		base_roots+=("${search_dirs[@]}")
+		local _ap_search_dirs=($APEX_SEARCH_PATH)
+		IFS="$_ap_ifs"
+		_ap_roots_out+=("${_ap_search_dirs[@]}")
 	fi
+	_ap_roots_out+=("/apex")
+	if [[ -n "$HOME" && -d "$HOME/.apex/mnt" ]]; then
+		_ap_roots_out+=("$HOME/.apex/mnt")
+	fi
+}
 
-	local all_pkg_paths=()
-	local all_python_paths=()
+_apex_get_arch_subdirs() {
+	local -n _ap_lib_out=$1
+	local -n _ap_pc_out=$2
+	local _ap_mode="${3:-}"
 
-	for dep in "${makedepends[@]}"; do
-		local dep_name="${dep%%@(<|>|=|>=|<=)*}"
-		local apex_name=""
-		if type -p apexm >/dev/null 2>&1; then
-			apex_name=$(${PACMAN_AUTH[@]} apexm local --name "$dep_name" 2>/dev/null)
-			if [[ -z "$apex_name" && "$dep_name" == *.so* ]]; then
-				apex_name=$(${PACMAN_AUTH[@]} apexm local --name "${dep_name%.so*}" 2>/dev/null)
-			fi
-			if [[ -z "$apex_name" && "$dep_name" != *.dev ]]; then
-				apex_name=$(${PACMAN_AUTH[@]} apexm local --name "${dep_name}.dev" 2>/dev/null)
-			fi
-		fi
-		if [[ -z "$apex_name" ]]; then
-			for root in "${base_roots[@]}"; do
-				if [[ -d "$root/$dep_name" || -d "$root/${dep_name}.dev" ]]; then
-					apex_name="$dep_name"
-					break
-				fi
+	if [[ "$_ap_mode" == "all" ]]; then
+		_ap_lib_out=("lib64" "libx32" "lib")
+		_ap_pc_out=("lib64/pkgconfig" "libx32/pkgconfig" "lib/pkgconfig" "lib/pkg-config" "share/pkgconfig")
+	elif [[ "$CARCH" == "x32" || "${arch[0]}" == "x32" ]]; then
+		# On x32 architecture, prioritize libx32 over lib
+		_ap_lib_out=("libx32" "lib")
+		_ap_pc_out=("libx32/pkgconfig" "lib/pkgconfig" "lib/pkg-config" "share/pkgconfig")
+	elif [[ "$CARCH" == *"64"* || "${arch[0]}" == *"64"* ]]; then
+		# On 64-bit architectures, prioritize lib64 over lib
+		_ap_lib_out=("lib64" "lib")
+		_ap_pc_out=("lib64/pkgconfig" "lib/pkgconfig" "lib/pkg-config" "share/pkgconfig")
+	else
+		_ap_lib_out=("lib")
+		_ap_pc_out=("lib/pkgconfig" "lib/pkg-config" "share/pkgconfig")
+	fi
+}
+
+# Resolve a single dependency or capability name (pc:, cmake:, bin:, alias:, .so, or package id)
+# to installed APEX prefix directories (standard candidate only, without synthesizing .dev).
+_apex_resolve_dep_prefixes() {
+	local _ap_dep_name=$1
+	local -n _ap_prefixes_out=$2
+	local _ap_fb_var="${3:-}"
+	local _ap_target_soname="${4:-$_ap_dep_name}"
+	local _ap_arch_mode="${5:-}"
+
+	local _ap_shellopts
+	_ap_shellopts=$(shopt -p extglob nullglob)
+	shopt -s extglob nullglob
+
+	local _ap_roots=() _ap_lib_dirs=() _ap_pc_subdirs=()
+	_apex_get_search_roots _ap_roots
+	_apex_get_arch_subdirs _ap_lib_dirs _ap_pc_subdirs "$_ap_arch_mode"
+
+	local _ap_root _ap_pc_sub _ap_ldir
+	if [[ "$_ap_dep_name" == pc:* ]]; then
+		local _ap_pc_target="${_ap_dep_name#pc:}"
+		local _ap_pc_file _ap_pkg_dir _ap_merged _ap_resolved_pc
+		for _ap_root in "${_ap_roots[@]}"; do
+			for _ap_pc_sub in "${_ap_pc_subdirs[@]}"; do
+				for _ap_pc_file in "$_ap_root"/*/"$_ap_pc_sub"/"${_ap_pc_target}.pc"; do
+					if [[ -e "$_ap_pc_file" ]]; then
+						_ap_pkg_dir="${_ap_pc_file%/"$_ap_pc_sub"/"${_ap_pc_target}.pc"}"
+						[[ -d "$_ap_pkg_dir" ]] && _ap_prefixes_out+=("$_ap_pkg_dir")
+					fi
+				done
 			done
-		fi
-
-		if [[ -n "$apex_name" ]]; then
-			local candidate_names=()
-			if [[ "$apex_name" == *.dev ]]; then
-				candidate_names=("$apex_name" "${apex_name%.dev}")
-			else
-				candidate_names=("${apex_name}.dev" "$apex_name")
-			fi
-
-			for root in "${base_roots[@]}"; do
-				for name in "${candidate_names[@]}"; do
-					local prefix="$root/$name"
-					[[ ! -d "$prefix" ]] && continue
-
-					if [[ -d "$prefix/include" ]]; then
-						if [[ " $CFLAGS " != *" -I$prefix/include "* ]]; then
-							export CFLAGS="$CFLAGS -I$prefix/include"
-						fi
-						if [[ " $CXXFLAGS " != *" -I$prefix/include "* ]]; then
-							export CXXFLAGS="$CXXFLAGS -I$prefix/include"
-						fi
-					fi
-
-					if [[ "$CARCH" == "x32" || "${arch[0]}" == "x32" ]]; then
-						# On x32 architecture, prioritize libx32 over lib
-						if [[ -d "$prefix/libx32" ]]; then
-							if [[ " $LDFLAGS " != *" -L$prefix/libx32 "* ]]; then
-								export LDFLAGS="$LDFLAGS -L$prefix/libx32"
+		done
+		if ((${#_ap_prefixes_out[@]} == 0)); then
+			for _ap_root in "${_ap_roots[@]}"; do
+				_ap_merged="${_ap_root%/mnt}"
+				for _ap_pc_sub in "${_ap_pc_subdirs[@]}"; do
+					for _ap_pc_file in "$_ap_root/$_ap_pc_sub/${_ap_pc_target}.pc" "$_ap_merged/$_ap_pc_sub/${_ap_pc_target}.pc"; do
+						if [[ -e "$_ap_pc_file" ]]; then
+							if type -p readlink >/dev/null 2>&1; then
+								_ap_resolved_pc=$(readlink -f "$_ap_pc_file" 2>/dev/null)
+								if [[ "$_ap_resolved_pc" == */"$_ap_pc_sub"/"${_ap_pc_target}.pc" ]]; then
+									_ap_pkg_dir="${_ap_resolved_pc%/"$_ap_pc_sub"/"${_ap_pc_target}.pc"}"
+									if [[ -d "$_ap_pkg_dir" && "$_ap_pkg_dir" != "$_ap_root" && "$_ap_pkg_dir" != "$_ap_merged" ]]; then
+										_ap_prefixes_out+=("$_ap_pkg_dir")
+										continue
+									fi
+								fi
+							fi
+							if [[ -n "$_ap_fb_var" ]]; then
+								local -n _ap_fb_out="$_ap_fb_var"
+								_ap_fb_out+=("${_ap_pc_file%/*}")
 							fi
 						fi
-						if [[ -d "$prefix/lib" ]]; then
-							if [[ " $LDFLAGS " != *" -L$prefix/lib "* ]]; then
-								export LDFLAGS="$LDFLAGS -L$prefix/lib"
-							fi
-						fi
-
-						if [[ -d "$prefix/libx32/pkgconfig" ]]; then
-							all_pkg_paths+=("$prefix/libx32/pkgconfig")
-						fi
-						if [[ -d "$prefix/lib/pkgconfig" ]]; then
-							all_pkg_paths+=("$prefix/lib/pkgconfig")
-						fi
-					elif [[ "$CARCH" == *"64"* || "${arch[0]}" == *"64"* ]]; then
-						# On 64-bit architectures, prioritize lib64 over lib
-						if [[ -d "$prefix/lib64" ]]; then
-							if [[ " $LDFLAGS " != *" -L$prefix/lib64 "* ]]; then
-								export LDFLAGS="$LDFLAGS -L$prefix/lib64"
-							fi
-						fi
-						if [[ -d "$prefix/lib" ]]; then
-							if [[ " $LDFLAGS " != *" -L$prefix/lib "* ]]; then
-								export LDFLAGS="$LDFLAGS -L$prefix/lib"
-							fi
-						fi
-
-						if [[ -d "$prefix/lib64/pkgconfig" ]]; then
-							all_pkg_paths+=("$prefix/lib64/pkgconfig")
-						fi
-						if [[ -d "$prefix/lib/pkgconfig" ]]; then
-							all_pkg_paths+=("$prefix/lib/pkgconfig")
-						fi
-					else
-						if [[ -d "$prefix/lib" ]]; then
-							if [[ " $LDFLAGS " != *" -L$prefix/lib "* ]]; then
-								export LDFLAGS="$LDFLAGS -L$prefix/lib"
-							fi
-						fi
-						if [[ -d "$prefix/lib/pkgconfig" ]]; then
-							all_pkg_paths+=("$prefix/lib/pkgconfig")
-						fi
-					fi
-
-					if [[ -d "$prefix/share/pkgconfig" ]]; then
-						all_pkg_paths+=("$prefix/share/pkgconfig")
-					fi
-
-					while IFS= read -r pydir; do
-						[[ -d "$pydir" ]] && all_python_paths+=("$pydir")
-					done < <(find "$prefix" -type d -name "site-packages" 2>/dev/null)
+					done
 				done
 			done
 		fi
+	elif [[ "$_ap_dep_name" == cmake:* ]]; then
+		local _ap_cm_target="${_ap_dep_name#cmake:}"
+		local _ap_cm_lc="${_ap_cm_target,,}"
+		local _ap_cm_entry _ap_pkg_dir
+		for _ap_root in "${_ap_roots[@]}"; do
+			for _ap_ldir in "${_ap_lib_dirs[@]}" "share"; do
+				for _ap_cm_entry in "$_ap_root"/*/"$_ap_ldir"/cmake/"${_ap_cm_target}" \
+				                    "$_ap_root"/*/"$_ap_ldir"/cmake/*/"${_ap_cm_target}Config.cmake" \
+				                    "$_ap_root"/*/"$_ap_ldir"/cmake/*/"${_ap_cm_lc}-config.cmake" \
+				                    "$_ap_root"/*/"$_ap_ldir"/"${_ap_cm_target}"/cmake/"${_ap_cm_target}Config.cmake"; do
+					if [[ -e "$_ap_cm_entry" ]]; then
+						_ap_pkg_dir="${_ap_cm_entry#"$_ap_root"/}"
+						_ap_pkg_dir="$_ap_root/${_ap_pkg_dir%%/*}"
+						[[ -d "$_ap_pkg_dir" ]] && _ap_prefixes_out+=("$_ap_pkg_dir")
+					fi
+				done
+			done
+		done
+	elif [[ "$_ap_dep_name" == bin:* ]]; then
+		local _ap_bin_target="${_ap_dep_name#bin:}"
+		local _ap_bfile _ap_pkg_dir
+		for _ap_root in "${_ap_roots[@]}"; do
+			for _ap_bfile in "$_ap_root"/*/bin/"${_ap_bin_target}" "$_ap_root"/*/usr/bin/"${_ap_bin_target}"; do
+				if [[ -e "$_ap_bfile" ]]; then
+					_ap_pkg_dir="${_ap_bfile#"$_ap_root"/}"
+					_ap_pkg_dir="$_ap_root/${_ap_pkg_dir%%/*}"
+					[[ -d "$_ap_pkg_dir" ]] && _ap_prefixes_out+=("$_ap_pkg_dir")
+				fi
+			done
+		done
+	elif [[ "$_ap_dep_name" == alias:* ]]; then
+		local _ap_alias_target="${_ap_dep_name#alias:}"
+		local _ap_adir
+		for _ap_root in "${_ap_roots[@]}"; do
+			for _ap_adir in "$_ap_root/$_ap_alias_target" "$_ap_root"/*."$_ap_alias_target"; do
+				if [[ -d "$_ap_adir" && -n "$(ls -A "$_ap_adir" 2>/dev/null)" ]]; then
+					_ap_prefixes_out+=("$_ap_adir")
+				fi
+			done
+		done
+	else
+		for _ap_root in "${_ap_roots[@]}"; do
+			if [[ -d "$_ap_root/$_ap_dep_name" && -n "$(ls -A "$_ap_root/$_ap_dep_name" 2>/dev/null)" ]]; then
+				_ap_prefixes_out+=("$_ap_root/$_ap_dep_name")
+			fi
+		done
+
+		if ((${#_ap_prefixes_out[@]} == 0)); then
+			local _ap_target_file="$_ap_target_soname"
+			if [[ "$_ap_target_file" == _* && "$_ap_target_file" != libdummy* ]]; then
+				if [[ "$_ap_target_file" =~ ^_(.+)-([^-]+)-([^-]+)$ ]]; then
+					local _ap_so="${BASH_REMATCH[1]}"
+					local _ap_d_arch="${BASH_REMATCH[2]}"
+					local _ap_d_march="${BASH_REMATCH[3]}"
+					_ap_target_file="libdummy_${_ap_so//-/_}-${_ap_d_arch}-${_ap_d_march}.so"
+				else
+					_ap_target_file="libdummy${_ap_target_file//-/_}.so"
+				fi
+			fi
+			local _ap_lib_file _ap_pkg_dir
+			for _ap_root in "${_ap_roots[@]}"; do
+				for _ap_ldir in "${_ap_lib_dirs[@]}"; do
+					for _ap_lib_file in "$_ap_root"/*/"$_ap_ldir"/"$_ap_target_file" "$_ap_root"/*/"$_ap_ldir"/bionic/"$_ap_target_file"; do
+						if [[ -e "$_ap_lib_file" ]]; then
+							_ap_pkg_dir="${_ap_lib_file#"$_ap_root"/}"
+							_ap_pkg_dir="$_ap_root/${_ap_pkg_dir%%/*}"
+							[[ -d "$_ap_pkg_dir" ]] && _ap_prefixes_out+=("$_ap_pkg_dir")
+						fi
+					done
+				done
+			done
+		fi
+
+		if ((${#_ap_prefixes_out[@]} == 0)) && type -p apexm >/dev/null 2>&1; then
+			local _ap_apex_name=""
+			_ap_apex_name=$(apexm local --name "$_ap_target_soname" 2>/dev/null)
+			if [[ -z "$_ap_apex_name" && "$_ap_dep_name" != "$_ap_target_soname" ]]; then
+				_ap_apex_name=$(apexm local --name "$_ap_dep_name" 2>/dev/null)
+			fi
+			if [[ -z "$_ap_apex_name" && "$_ap_target_soname" == *.so* ]]; then
+				_ap_apex_name=$(apexm local --name "${_ap_target_soname%.so*}" 2>/dev/null)
+			fi
+			if [[ -n "$_ap_apex_name" ]]; then
+				for _ap_root in "${_ap_roots[@]}"; do
+					[[ -d "$_ap_root/$_ap_apex_name" ]] && _ap_prefixes_out+=("$_ap_root/$_ap_apex_name")
+				done
+			fi
+		fi
+	fi
+
+	eval "$_ap_shellopts"
+}
+
+buildenv_apex_install() {
+	local lib_dirs=()
+	local pc_subdirs=()
+	_apex_get_arch_subdirs lib_dirs pc_subdirs
+
+	local all_pkg_paths=()
+	local fallback_pkg_paths=()
+	local all_python_paths=()
+	local seen_prefixes="|"
+
+	local dep
+	for dep in "${depends[@]}" "${makedepends[@]}" "${checkdepends[@]}"; do
+		[[ -z "$dep" ]] && continue
+		local dep_name="${dep%%@(<|>|=|>=|<=)*}"
+		local matched_prefixes=()
+		_apex_resolve_dep_prefixes "$dep_name" matched_prefixes fallback_pkg_paths
+
+		local prefix ldir pc_sub pydir
+		for prefix in "${matched_prefixes[@]}"; do
+			[[ ! -d "$prefix" ]] && continue
+			[[ "$seen_prefixes" == *"|$prefix|"* ]] && continue
+			seen_prefixes+="$prefix|"
+
+			if [[ -d "$prefix/include" ]]; then
+				if [[ " $CFLAGS " != *" -I$prefix/include "* ]]; then
+					export CFLAGS="$CFLAGS -I$prefix/include"
+				fi
+				if [[ " $CXXFLAGS " != *" -I$prefix/include "* ]]; then
+					export CXXFLAGS="$CXXFLAGS -I$prefix/include"
+				fi
+			fi
+
+			for ldir in "${lib_dirs[@]}"; do
+				if [[ -d "$prefix/$ldir" ]]; then
+					if [[ " $LDFLAGS " != *" -L$prefix/$ldir "* ]]; then
+						export LDFLAGS="$LDFLAGS -L$prefix/$ldir"
+					fi
+				fi
+			done
+
+			for pc_sub in "${pc_subdirs[@]}"; do
+				if [[ -d "$prefix/$pc_sub" ]]; then
+					all_pkg_paths+=("$prefix/$pc_sub")
+				fi
+			done
+
+			while IFS= read -r pydir; do
+				[[ -d "$pydir" ]] && all_python_paths+=("$pydir")
+			done < <(find "$prefix" -type d -name "site-packages" 2>/dev/null)
+		done
 	done
+
+	all_pkg_paths+=("${fallback_pkg_paths[@]}")
 
 	local joined_pkg_paths=""
 	for pkg_path in "${all_pkg_paths[@]}"; do
@@ -144,8 +264,6 @@ buildenv_apex_install() {
 	if [[ -n "$joined_python_paths" ]]; then
 		export PYTHONPATH="$joined_python_paths${PYTHONPATH:+:}$PYTHONPATH"
 	fi
-
-	eval "$shellopts"
 }
 
 buildenv_functions+=('buildenv_apex_install')
