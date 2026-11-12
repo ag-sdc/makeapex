@@ -700,6 +700,150 @@ if command -v pkg-config >/dev/null 2>&1 && ! echo "$TEST10_OUT" | grep -q "^BUI
 fi
 echo "PASSED: End-to-end PKG_CONFIG_PATH, CFLAGS, and LDFLAGS reached build() for depends=libz.so and makedepends=pc:zlib"
 
+# Test 11: Partial unresolvable deps still export PKG_CONFIG_PATH, head -n 1 picks first provider, cmake dir not matched, BUILDENV=(apex_install) lints cleanly, and apexm -S splits -l vs pkg targets
+echo "[Test 11] Partial PKG_CONFIG_PATH export, head -n 1 provider selection, cmake dir guard, BUILDENV lint, apexm -S flag split"
+TEST11_ROOT="$TEST_TMPDIR/test11_apex"
+TEST11_PKG="$TEST_TMPDIR/test11_pkg"
+TEST11_BIN="$TEST_TMPDIR/test11_bin"
+mkdir -p "$TEST11_ROOT/org.blisslabs.ag.zlib.ng.dev/lib64/pkgconfig"
+mkdir -p "$TEST11_ROOT/org.blisslabs.ag.ext.zlib.dev/lib64/pkgconfig"
+mkdir -p "$TEST11_ROOT/org.blisslabs.ag.fmtlib.dev/lib/cmake"
+mkdir -p "$TEST11_ROOT/org.blisslabs.ag.fmtlib.dev/lib64/pkgconfig"
+mkdir -p "$TEST11_PKG" "$TEST11_BIN"
+
+cat > "$TEST11_ROOT/org.blisslabs.ag.zlib.ng.dev/lib64/pkgconfig/zlib.pc" << 'EOF'
+Name: zlib
+Description: zlib
+Version: 1.3.1
+EOF
+cat > "$TEST11_ROOT/org.blisslabs.ag.fmtlib.dev/lib64/pkgconfig/fmt.pc" << 'EOF'
+Name: fmt
+Description: fmt
+Version: 10.0.0
+EOF
+
+TEST11_APEXM_LOG="$TEST_TMPDIR/test11_apexm.log"
+cat > "$TEST11_BIN/apexm" << EOF
+#!/bin/bash
+echo "CALL:\$*" >> "$TEST11_APEXM_LOG"
+if [[ "\$1" == "local" && "\$2" == "--name" ]]; then
+    if [[ "\$3" == "pc:zlib" ]]; then
+        echo "org.blisslabs.ag.zlib.ng.dev"
+        echo "org.blisslabs.ag.ext.zlib.dev"
+        exit 0
+    fi
+    exit 1
+elif [[ "\$1" == "-Ss" ]]; then
+    last="\${@: -1}"
+    has_l=0
+    for a in "\$@"; do
+        [[ "\$a" == "-l" ]] && has_l=1
+    done
+    if ((has_l)) && [[ "\$last" == "libmockfoo.so" ]]; then
+        exit 0
+    elif ((!has_l)) && [[ "\$last" == "mockpkg.dev" ]]; then
+        exit 0
+    fi
+    exit 1
+elif [[ "\$1" == "-S" ]]; then
+    exit 0
+fi
+exit 1
+EOF
+chmod +x "$TEST11_BIN/apexm"
+
+TEST11_CONF="$TEST_TMPDIR/test11_makeapex.conf"
+sed 's/^BUILDENV=(.*)$/BUILDENV=(apex_install color check !sign)/' "$BUILD_DIR/makeapex.conf" > "$TEST11_CONF"
+echo "PACMAN_AUTH=()" >> "$TEST11_CONF"
+
+cat > "$TEST11_PKG/APEXBUILD" << 'EOF'
+pkgname=com.test.partial
+pkgver=1.0.0
+pkgrel=1
+arch=('x86_64')
+payload_fs=erofs
+options=('!buildflags')
+makedepends=('cmake' 'pc:zlib' 'pc:doesnotexist' 'unresolvable.pkg' 'libmockfoo.so' 'mockpkg.dev')
+
+build() {
+	echo "TEST11_PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
+}
+
+package() {
+	mkdir -p "$pkgdir/usr"
+}
+EOF
+
+cd "$TEST11_PKG"
+TEST11_OUT=$(PATH="$TEST11_BIN:$PATH" APEX_SEARCH_PATH="$TEST11_ROOT" PKG_CONFIG_PATH="" "$MAKEAPEX_BIN" --config "$TEST11_CONF" -s --noarchive -f 2>&1)
+echo "$TEST11_OUT"
+
+if echo "$TEST11_OUT" | grep -q "unknown option 'apex_install'"; then
+    echo "FAILED: BUILDENV=(apex_install ...) rejected by lint_buildenv"
+    exit 1
+fi
+TEST11_PCP=$(echo "$TEST11_OUT" | grep "^TEST11_PKG_CONFIG_PATH=")
+if ! echo "$TEST11_PCP" | grep -q "$TEST11_ROOT/org.blisslabs.ag.zlib.ng.dev/lib64/pkgconfig"; then
+    echo "FAILED: Resolvable pc:zlib should still be exported when other makedepends are unresolvable"
+    exit 1
+fi
+if echo "$TEST11_PCP" | grep -q "org.blisslabs.ag.ext.zlib.dev"; then
+    echo "FAILED: apexm | head -n 1 should select only the first provider"
+    exit 1
+fi
+if echo "$TEST11_PCP" | grep -q "org.blisslabs.ag.fmtlib.dev"; then
+    echo "FAILED: cmake dep should not match lib/cmake directory in org.blisslabs.ag.fmtlib.dev"
+    exit 1
+fi
+if ! grep -q "^CALL:-S -l .*libmockfoo\.so" "$TEST11_APEXM_LOG"; then
+    echo "FAILED: Expected apexm -S -l for libmockfoo.so"
+    exit 1
+fi
+PKG_CALL=$(grep "^CALL:-S " "$TEST11_APEXM_LOG" | grep "mockpkg\.dev" | head -n 1 || true)
+if [[ -z "$PKG_CALL" ]] || echo "$PKG_CALL" | grep -q " -l "; then
+    echo "FAILED: Expected apexm -S without -l for mockpkg.dev, got: $PKG_CALL"
+    exit 1
+fi
+echo "PASSED: Partial PKG_CONFIG_PATH export, head -n 1 provider selection, cmake dir guard, BUILDENV lint, apexm -S flag split"
+
+# Test 12: 60-linkerconfig keeps libdummy_<pkgname> only and removes libdummy_<type>
+echo "[Test 12] 60-linkerconfig emits libdummy_<pkgname> only (no libdummy_<type>)"
+TEST12_DIR="$TEST_TMPDIR/test12_linker"
+mkdir -p "$TEST12_DIR/pkg/bin" "$TEST12_DIR/pkg/share/terminfo" "$TEST12_DIR/pkg/include" "$TEST12_DIR/pkg/lib/pkgconfig" "$TEST12_DIR/pkg/etc"
+printf '#!/bin/sh\necho hi\n' > "$TEST12_DIR/pkg/bin/mytool"
+chmod +x "$TEST12_DIR/pkg/bin/mytool"
+touch "$TEST12_DIR/pkg/include/foo.h" "$TEST12_DIR/pkg/lib/pkgconfig/foo.pc"
+
+TEST12_OUT=$(bash -c "
+export MAKEAPEX_LIBRARY='$LIBMAKEAPEX_DIR'
+source '$LIBMAKEAPEX_DIR/tidy/60-linkerconfig.sh'
+pkgdir='$TEST12_DIR/pkg'
+pkgdirprefix='$TEST12_DIR/pkg'
+package_name='my-test-pkg'
+pkgbase='my-test-pkg'
+depends=()
+provides=()
+req_libs=()
+prov_libs=()
+parse_depends
+parse_dump_object
+gen_provides
+printf 'PROV=%s\n' \"\${prov_libs[@]}\"
+" 2>&1)
+echo "$TEST12_OUT"
+
+if ! echo "$TEST12_OUT" | grep -q "^PROV=libdummy_my_test_pkg\.so$"; then
+    echo "FAILED: Expected libdummy_my_test_pkg.so in prov_libs"
+    exit 1
+fi
+for forbidden in libdummy_binary_ libdummy_shared_ libdummy_headers_ libdummy_pkgconfig_ libdummy_linux_ libdummy_linuxheaders_ libdummy_firmware_; do
+    if echo "$TEST12_OUT" | grep -q "^PROV=$forbidden"; then
+        echo "FAILED: Unexpected libdummy_<type> entry emitted: $forbidden"
+        exit 1
+    fi
+done
+echo "PASSED: 60-linkerconfig emits libdummy_<pkgname> only"
+
 echo "=== All tests PASSED successfully ==="
 
 if [[ -n "$1" ]]; then

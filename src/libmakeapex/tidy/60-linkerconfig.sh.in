@@ -74,10 +74,6 @@ parse_dump_object() {
 		soname=$(LC_ALL=C readelf -d "$binary" 2>/dev/null | grep 'SONAME' | sed -E 's/.*\[([^]]+)\].*/\1/')
 		if [[ -n "$soname" ]]; then
 			prov_libs+=("$soname")
-		else
-			local bin_name
-			bin_name=$(basename "$binary")
-			gen_libdummy "_binary_${bin_name//_/-}"
 		fi
 
 		while IFS= read -r n; do
@@ -102,38 +98,6 @@ parse_dump_object() {
 	done < <(find "$pkgdirprefix"/{bin,lib{,64,x32}} -type l -print0 2>/dev/null)
 }
 
-parse_shared_res() {
-	local share_dir="$pkgdirprefix/share"
-	if [[ ! -d "$share_dir" ]]; then
-		return
-	fi
-
-	for resource_path in "$share_dir"/*; do
-		if [[ ! -d "$resource_path" ]]; then
-			continue
-		fi
-
-		local resource_name
-		resource_name=$(basename "$resource_path")
-
-		local skip=1
-		case "$resource_name" in
-		icon*) if [[ "$package_name" == *icon* ]]; then skip=0; fi ;;
-		theme*) if [[ "$package_name" == *theme* ]]; then skip=0; fi ;;
-		zoneinfo) if [[ "$package_name" == "tzdata" ]]; then skip=0; fi ;;
-		terminfo) if [[ "$package_name" =~ ^(lib)?ncursesw?$ ]]; then skip=0; fi ;;
-		doc | man | info | background* | wallpaper* | locale | applications | mime | licenses | pkgconfig | aclocal | zsh | bash-completion) skip=1 ;;
-		*) skip=0 ;;
-		esac
-
-		if [[ $skip -eq 1 ]]; then
-			continue
-		fi
-
-		gen_libdummy "_shared_${resource_name//_/-}"
-	done
-}
-
 gen_provides() {
 	for p in "${provides[@]}"; do
 		if [[ "$p" == *.so* ]]; then
@@ -144,35 +108,6 @@ gen_provides() {
 	done
 
 	gen_libdummy "_${package_name//-/_}"
-
-	# Development headers and pkgconfig files
-	if [[ -d "$pkgdirprefix/include" ]]; then
-		local package_base=${pkgbase:-$package_name}
-		gen_libdummy "_headers_${package_base//-/_}"
-		if [[ -d "$pkgdirprefix/lib/pkgconfig" ]]; then
-			gen_libdummy "_pkgconfig_${package_base//-/_}"
-		fi
-	fi
-
-	# Kernel modules
-	find "$pkgdirprefix"/lib{,64,x32}/modules -mindepth 2 -maxdepth 2 -type f -name "vmlinu[xz]" -print0 2>/dev/null | while IFS= read -rd '' kernel; do
-		local kver
-		kver=$(basename "$(dirname "$kernel")")
-		gen_libdummy "_linux_${kver}" # Preserve kernel version
-		if [[ -d "$pkgdirprefix/lib/modules/${kver}/build" || -d "$pkgdirprefix/lib64/modules/${kver}/build" || -d "$pkgdirprefix/libx32/modules/${kver}/build" ]]; then
-			gen_libdummy "_linuxheaders_${kver}" # Preserve kernel version
-		fi
-	done
-
-	# Firmwares
-	find "$pkgdirprefix"/lib{,64,x32}/firmware -mindepth 1 -maxdepth 1 -print0 2>/dev/null | while IFS= read -rd '' firmware; do
-		local fw_name
-		fw_name=$(basename "$firmware")
-		if [[ -f "$firmware" ]] && file "$firmware" | grep -Iq 'compressed'; then
-			fw_name="${fw_name%.*}"
-		fi
-		gen_libdummy "_firmware_${fw_name}" # Preserve firmware names
-	done
 }
 
 gen_march_symlinks() {
@@ -299,7 +234,6 @@ tidy_linkerconfig() {
 
 	parse_depends
 	parse_dump_object
-	parse_shared_res
 	gen_provides
 
 	get_dummy_suffixes

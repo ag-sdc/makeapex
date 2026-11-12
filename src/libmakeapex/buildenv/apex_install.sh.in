@@ -63,17 +63,18 @@ _apex_resolve_dep_prefixes() {
 	# Delegate resolution (pc:, cmake:, bin:, alias:, py*:, jar:, header:, .so, pkg id) to apexm.
 	if type -p apexm >/dev/null 2>&1; then
 		local _ap_apex_name=""
-		_ap_apex_name=$(apexm local --name "$_ap_dep_name" 2>/dev/null)
+		_ap_apex_name=$(apexm local --name "$_ap_dep_name" 2>/dev/null | head -n 1)
 		if [[ -z "$_ap_apex_name" && "$_ap_target_soname" != "$_ap_dep_name" ]]; then
-			_ap_apex_name=$(apexm local --name "$_ap_target_soname" 2>/dev/null)
+			_ap_apex_name=$(apexm local --name "$_ap_target_soname" 2>/dev/null | head -n 1)
 		fi
 		if [[ -z "$_ap_apex_name" && "$_ap_target_soname" == *.so* ]]; then
-			_ap_apex_name=$(apexm local --name "${_ap_target_soname%.so*}" 2>/dev/null)
+			_ap_apex_name=$(apexm local --name "${_ap_target_soname%.so*}" 2>/dev/null | head -n 1)
 		fi
 		if [[ -n "$_ap_apex_name" ]]; then
 			for _ap_root in "${_ap_roots[@]}"; do
 				if [[ -d "$_ap_root/$_ap_apex_name" && -n "$(ls -A "$_ap_root/$_ap_apex_name" 2>/dev/null)" ]]; then
 					_ap_prefixes_out+=("$_ap_root/$_ap_apex_name")
+					break
 				fi
 			done
 		fi
@@ -84,6 +85,7 @@ _apex_resolve_dep_prefixes() {
 		for _ap_root in "${_ap_roots[@]}"; do
 			if [[ -d "$_ap_root/$_ap_dep_name" && -n "$(ls -A "$_ap_root/$_ap_dep_name" 2>/dev/null)" ]]; then
 				_ap_prefixes_out+=("$_ap_root/$_ap_dep_name")
+				break
 			fi
 		done
 
@@ -103,7 +105,7 @@ _apex_resolve_dep_prefixes() {
 			for _ap_root in "${_ap_roots[@]}"; do
 				for _ap_ldir in "${_ap_lib_dirs[@]}"; do
 					for _ap_lib_file in "$_ap_root"/*/"$_ap_ldir"/"$_ap_target_file" "$_ap_root"/*/"$_ap_ldir"/bionic/"$_ap_target_file"; do
-						if [[ -e "$_ap_lib_file" ]]; then
+						if [[ ! -d "$_ap_lib_file" && -e "$_ap_lib_file" ]]; then
 							_ap_pkg_dir="${_ap_lib_file#"$_ap_root"/}"
 							_ap_pkg_dir="$_ap_root/${_ap_pkg_dir%%/*}"
 							[[ -d "$_ap_pkg_dir" ]] && _ap_prefixes_out+=("$_ap_pkg_dir")
@@ -118,6 +120,10 @@ _apex_resolve_dep_prefixes() {
 }
 
 buildenv_apex_install() {
+	if type -t check_buildenv >/dev/null 2>&1 && check_buildenv "apex_install" "n"; then
+		return 0
+	fi
+
 	local lib_dirs=()
 	local pc_subdirs=()
 	_apex_get_arch_subdirs lib_dirs pc_subdirs
@@ -131,7 +137,7 @@ buildenv_apex_install() {
 		[[ -z "$dep" ]] && continue
 		local dep_name="${dep%%@(<|>|=|>=|<=)*}"
 		local matched_prefixes=()
-		_apex_resolve_dep_prefixes "$dep_name" matched_prefixes
+		_apex_resolve_dep_prefixes "$dep_name" matched_prefixes || true
 
 		local prefix ldir pc_sub pydir
 		for prefix in "${matched_prefixes[@]}"; do
@@ -174,9 +180,7 @@ buildenv_apex_install() {
 			joined_pkg_paths="${joined_pkg_paths:+$joined_pkg_paths:}$pkg_path"
 		fi
 	done
-	if [[ -n "$joined_pkg_paths" ]]; then
-		export PKG_CONFIG_PATH="$joined_pkg_paths${PKG_CONFIG_PATH:+:}$PKG_CONFIG_PATH"
-	fi
+	export PKG_CONFIG_PATH="${joined_pkg_paths}${joined_pkg_paths:+${PKG_CONFIG_PATH:+:}}$PKG_CONFIG_PATH"
 
 	local joined_python_paths=""
 	for py_path in "${all_python_paths[@]}"; do
@@ -187,6 +191,9 @@ buildenv_apex_install() {
 	if [[ -n "$joined_python_paths" ]]; then
 		export PYTHONPATH="$joined_python_paths${PYTHONPATH:+:}$PYTHONPATH"
 	fi
+
+	return 0
 }
 
+build_options+=('apex_install')
 buildenv_functions+=('buildenv_apex_install')

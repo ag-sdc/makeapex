@@ -88,6 +88,9 @@ MAKEAPEX_LINT_APEXBUILD=${MAKEAPEX_LINT_APEXBUILD:-1}
 
 PACMAN_OPTS=()
 APEX_INSTALL_OPTS=()
+APEX_INSTALL_SKIP_ABI_LEVEL=${APEX_INSTALL_SKIP_ABI_LEVEL:-3}
+export APEX_INSTALL_SKIP_ABI_LEVEL
+BUILDENV_PREPARED=0
 
 # Detect non-Android (cross-compile / non-Bionic libc host)
 if [[ -z "${is_bionic+x}" ]]; then
@@ -428,6 +431,8 @@ check_buildtime_deps_non_android() {
 		local unavailable=()
 		local available=()
 		local available_targets=()
+		local available_lib_targets=()
+		local available_pkg_targets=()
 
 		if ((DEP_BIN)) && command -v apexm >/dev/null 2>&1; then
 			local apexm_opts=("${APEX_INSTALL_OPTS[@]}")
@@ -466,9 +471,11 @@ check_buildtime_deps_non_android() {
 
 				local found=0
 				local target_to_install=""
+				local is_lib_target=0
 				# Search for providers by library name or package name
 				if apexm -Ss "${apexm_opts[@]}" -l "$target_soname" >/dev/null 2>&1; then
 					found=1
+					is_lib_target=1
 					target_to_install="$target_soname"
 				elif [[ "$dep_name" != "$target_soname" ]] && apexm -Ss "${apexm_opts[@]}" "$dep_name" >/dev/null 2>&1; then
 					found=1
@@ -478,6 +485,11 @@ check_buildtime_deps_non_android() {
 				if ((found)); then
 					available+=("$dep")
 					available_targets+=("$target_to_install")
+					if ((is_lib_target)); then
+						available_lib_targets+=("$target_to_install")
+					else
+						available_pkg_targets+=("$target_to_install")
+					fi
 				else
 					unavailable+=("$dep")
 				fi
@@ -485,19 +497,31 @@ check_buildtime_deps_non_android() {
 
 			if ((${#available_targets[@]} > 0)); then
 				msg "$(gettext "Installing available make dependencies...")"
-				local cmd=("apexm" "-S" "-l" "${apexm_opts[@]}")
-				if in_array "--noconfirm" "${PACMAN_OPTS[@]}"; then
-					cmd+=("--noconfirm")
-				fi
-				cmd+=("${available_targets[@]}")
-				if ((${#PACMAN_AUTH[@]})); then
-					if in_array '%c' "${PACMAN_AUTH[@]}"; then
-						cmd=("${PACMAN_AUTH[@]/\%c/$(printf '%q ' "${cmd[@]}")}")
+				local _mode
+				for _mode in lib pkg; do
+					local _batch=()
+					local cmd=("apexm" "-S")
+					if [[ "$_mode" == "lib" ]]; then
+						_batch=("${available_lib_targets[@]}")
+						cmd+=("-l")
 					else
-						cmd=("${PACMAN_AUTH[@]}" "${cmd[@]}")
+						_batch=("${available_pkg_targets[@]}")
 					fi
-				fi
-				"${cmd[@]}" || true
+					((${#_batch[@]} == 0)) && continue
+					cmd+=("${apexm_opts[@]}")
+					if in_array "--noconfirm" "${PACMAN_OPTS[@]}"; then
+						cmd+=("--noconfirm")
+					fi
+					cmd+=("${_batch[@]}")
+					if ((${#PACMAN_AUTH[@]})); then
+						if in_array '%c' "${PACMAN_AUTH[@]}"; then
+							cmd=("${PACMAN_AUTH[@]/\%c/$(printf '%q ' "${cmd[@]}")}")
+						else
+							cmd=("${PACMAN_AUTH[@]}" "${cmd[@]}")
+						fi
+					fi
+					"${cmd[@]}" || true
+				done
 
 				for i in "${!available[@]}"; do
 					local dep="${available[i]}"
@@ -1581,10 +1605,12 @@ while true; do
 		shift
 		APEX_INSTALL_OPTS+=("--skip-abi-level=$1")
 		APEX_INSTALL_SKIP_ABI_LEVEL_OVERRIDE=1
+		export APEX_INSTALL_SKIP_ABI_LEVEL="$1"
 		;;
 	--disable-skip-abis)
 		APEX_INSTALL_OPTS+=("--disable-skip-abis")
 		APEX_INSTALL_SKIP_ABI_LEVEL_OVERRIDE=1
+		export APEX_INSTALL_SKIP_ABI_LEVEL=0
 		;;
 	--skip-abi-custom)
 		shift
@@ -2023,6 +2049,10 @@ if ((!REPKG)); then
 		cd_safe "$srcdir"
 		extract_sources
 		if ((PREPAREFUNC)); then
+			if ((!BUILDENV_PREPARED)); then
+				prepare_buildenv || exit "$E_INVALID_OPTION"
+				BUILDENV_PREPARED=1
+			fi
 			run_prepare
 		fi
 		if ((REPRODUCIBLE)); then
@@ -2052,7 +2082,10 @@ else
 	chmod a-srw "$pkgdirbase"
 	cd_safe "$startdir"
 
-	prepare_buildenv || exit "$E_INVALID_OPTION"
+	if ((!BUILDENV_PREPARED)); then
+		prepare_buildenv || exit "$E_INVALID_OPTION"
+		BUILDENV_PREPARED=1
+	fi
 
 	if ((!REPKG)); then
 		((BUILDFUNC)) && run_build

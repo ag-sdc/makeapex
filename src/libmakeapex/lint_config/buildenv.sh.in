@@ -32,7 +32,7 @@ lint_config_functions+=('lint_buildenv')
 
 lint_buildenv() {
 	local ret=0 kopt 
-	local known_buildenv=(ccache check color distcc sccache sign)
+	local known_buildenv=(android_toolchain apex_install ccache check color distcc sccache sign)
 	local known_option=(autodeps debug docs emptydirs libtool lto purge staticlibs strip zipman)
 
 	for i in "${BUILDENV[@]}"; do
@@ -56,4 +56,6 @@ lint_buildenv() {
 		error "$(gettext "%s array contains unknown option '%s'")" "OPTIONS" "$i"
 		ret=1
 	done
+
+	return "$ret"
 }
