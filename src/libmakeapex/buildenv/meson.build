@@ -1,6 +1,7 @@
 libmakeapex_module = 'buildenv'
 
 sources = [
+  'android_toolchain.sh.in',
   'apex_install.sh.in',
   'buildflags.sh.in',
   'compiler.sh.in',

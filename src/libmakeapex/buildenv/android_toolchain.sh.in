@@ -1,0 +1,139 @@
+#!/usr/bin/bash
+# shellcheck disable=SC1091,SC2154,SC2034,SC1090
+
+[[ -n "$LIBMAKEAPEX_BUILDENV_ANDROID_TOOLCHAIN_SH" ]] && return
+LIBMAKEAPEX_BUILDENV_ANDROID_TOOLCHAIN_SH=1
+
+MAKEAPEX_LIBRARY=${MAKEAPEX_LIBRARY:-"@libmakeapexdir@"}
+
+source "$MAKEAPEX_LIBRARY/util/option.sh"
+
+build_options+=('android_toolchain')
+buildenv_functions+=('buildenv_android_toolchain')
+
+_android_target_triple() {
+	local target_arch=$1
+	case "$target_arch" in
+		x86_64)
+			printf '%s\n' "x86_64-linux-android"
+			;;
+		aarch64|arm64)
+			printf '%s\n' "aarch64-linux-android"
+			;;
+		armv7h|armv7a|arm)
+			printf '%s\n' "armv7a-linux-androideabi"
+			;;
+		i686|x86|x86_32)
+			printf '%s\n' "i686-linux-android"
+			;;
+	esac
+}
+
+_android_prepend_flag_if_missing() {
+	local var_name=$1
+	local flag_prefix=$2
+	local full_flag=$3
+	local current="${!var_name}"
+	if [[ " $current " != *" ${flag_prefix}"* ]]; then
+		export "$var_name"="${full_flag}${current:+ $current}"
+	fi
+}
+
+buildenv_android_toolchain() {
+	if check_buildoption "android_toolchain" "n"; then
+		return 0
+	fi
+
+	local target_arch="${pkgarch:-${CARCH:-${arch[0]}}}"
+	if [[ -z "$target_arch" || "$target_arch" == "any" ]]; then
+		return 0
+	fi
+
+	local triple
+	triple=$(_android_target_triple "$target_arch")
+	if [[ -z "$triple" ]]; then
+		return 0
+	fi
+
+	local ndk_root="${NDK:-${ANDROID_NDK_HOME:-/opt/android-ndk}}"
+	if [[ ! -d "$ndk_root" && -d "/opt/android-sdk/ndk" ]]; then
+		local latest_ndk=""
+		latest_ndk=$(find /opt/android-sdk/ndk -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort -V | tail -n 1)
+		if [[ -n "$latest_ndk" ]]; then
+			ndk_root="$latest_ndk"
+		fi
+	fi
+
+	local ndk_bin="$ndk_root/toolchains/llvm/prebuilt/linux-x86_64/bin"
+	if [[ -d "$ndk_bin" && ":$PATH:" != *":$ndk_bin:"* ]]; then
+		export PATH="$ndk_bin:$PATH"
+	fi
+
+	local api="${api_level:-${API:-34}}"
+	local cc_bin="${triple}${api}-clang"
+	local cxx_bin="${triple}${api}-clang++"
+
+	if [[ -z "$CC" ]] && command -v "$cc_bin" >/dev/null 2>&1; then
+		export CC="$cc_bin"
+	fi
+	if [[ -z "$CXX" ]] && command -v "$cxx_bin" >/dev/null 2>&1; then
+		export CXX="$cxx_bin"
+	fi
+	if [[ -z "$AR" ]] && command -v llvm-ar >/dev/null 2>&1; then
+		export AR="llvm-ar"
+	fi
+	if [[ -z "$RANLIB" ]] && command -v llvm-ranlib >/dev/null 2>&1; then
+		export RANLIB="llvm-ranlib"
+	fi
+	if [[ -z "$STRIP" ]] && command -v llvm-strip >/dev/null 2>&1; then
+		export STRIP="llvm-strip"
+	fi
+	if [[ -z "$BUILD_CC" ]] && command -v gcc >/dev/null 2>&1; then
+		export BUILD_CC="gcc"
+	fi
+
+	# Inject platform sysroot only when base Android ABIs are not skipped
+	# (--disable-skip-abis / --skip-abi-level 0) or com.android.runtime.dev is requested.
+	local use_platform_sysroot=0
+	if (( ${APEX_INSTALL_SKIP_ABI_LEVEL:-3} == 0 )); then
+		use_platform_sysroot=1
+	else
+		local dep
+		for dep in "${depends[@]}" "${makedepends[@]}"; do
+			if [[ "${dep%%@(<|>|=|>=|<=)*}" == "com.android.runtime.dev" ]]; then
+				use_platform_sysroot=1
+				break
+			fi
+		done
+	fi
+
+	if (( use_platform_sysroot )) && ! check_option "buildflags" "n"; then
+		local sysroot="${ANDROID_SYSROOT:-}"
+		if [[ -z "$sysroot" ]]; then
+			local search_roots=()
+			if [[ -n "$APEX_SEARCH_PATH" ]]; then
+				local old_ifs="$IFS"
+				IFS=':'
+				search_roots=($APEX_SEARCH_PATH)
+				IFS="$old_ifs"
+			fi
+			search_roots+=("/apex")
+			if [[ -n "$HOME" && -d "$HOME/.apex/mnt" ]]; then
+				search_roots+=("$HOME/.apex/mnt")
+			fi
+			local r
+			for r in "${search_roots[@]}"; do
+				if [[ -d "$r/com.android.runtime.dev" ]]; then
+					sysroot="$r/com.android.runtime.dev"
+					break
+				fi
+			done
+		fi
+
+		if [[ -n "$sysroot" && -d "$sysroot" ]]; then
+			_android_prepend_flag_if_missing CFLAGS "--sysroot" "--sysroot=$sysroot"
+			_android_prepend_flag_if_missing CXXFLAGS "--sysroot" "--sysroot=$sysroot"
+			_android_prepend_flag_if_missing LDFLAGS "--sysroot" "--sysroot=$sysroot"
+		fi
+	fi
+}
