@@ -311,20 +311,11 @@ check_apex_lib_exists() {
 				return 0
 			fi
 		done
-	elif [[ "$dep_name" == bin:* ]]; then
-		local bin_target="${dep_name#bin:}"
-		local apex_roots=() r
-		_apex_get_search_roots apex_roots
-		for r in "${apex_roots[@]}"; do
-			if [[ -e "$r/bin/$bin_target" || -e "${r%/mnt}/bin/$bin_target" ]]; then
-				return 0
-			fi
-		done
 	fi
 
-	local resolved_prefixes=() resolved_pc_fallbacks=()
-	_apex_resolve_dep_prefixes "$dep_name" resolved_prefixes resolved_pc_fallbacks "$target_soname" "all"
-	if ((${#resolved_prefixes[@]} > 0 || ${#resolved_pc_fallbacks[@]} > 0)); then
+	local resolved_prefixes=()
+	_apex_resolve_dep_prefixes "$dep_name" resolved_prefixes "$target_soname" "all"
+	if ((${#resolved_prefixes[@]} > 0)); then
 		return 0
 	fi
 

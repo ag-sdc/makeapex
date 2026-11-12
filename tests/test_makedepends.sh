@@ -630,8 +630,48 @@ package() {
 }
 EOF
 
+TEST10_BIN="$TEST_TMPDIR/test10_bin"
+mkdir -p "$TEST10_BIN"
+if [[ -n "${APEXM_BIN:-}" && -x "$APEXM_BIN" ]]; then
+    ln -sf "$APEXM_BIN" "$TEST10_BIN/apexm"
+elif [[ -x "$BUILD_DIR/../../../apexm/build/apexm" ]]; then
+    ln -sf "$BUILD_DIR/../../../apexm/build/apexm" "$TEST10_BIN/apexm"
+else
+    cat > "$TEST10_BIN/apexm" << 'EOF'
+#!/bin/bash
+if [[ "$1" == "local" && "$2" == "--name" ]]; then
+    q="$3"
+    IFS=: read -r -a roots <<< "${APEX_SEARCH_PATH:-}"
+    if [[ "$q" == pc:* ]]; then
+        pc="${q#pc:}.pc"
+        for r in "${roots[@]}"; do
+            for f in "$r"/*/lib*/pkgconfig/"$pc" "$r"/*/share/pkgconfig/"$pc"; do
+                if [[ -e "$f" ]]; then
+                    rel="${f#"$r"/}"
+                    echo "${rel%%/*}"
+                    exit 0
+                fi
+            done
+        done
+    elif [[ "$q" == *.so* ]]; then
+        for r in "${roots[@]}"; do
+            for f in "$r"/*/lib*/"$q"; do
+                if [[ -e "$f" ]]; then
+                    rel="${f#"$r"/}"
+                    echo "${rel%%/*}"
+                    exit 0
+                fi
+            done
+        done
+    fi
+fi
+exit 1
+EOF
+    chmod +x "$TEST10_BIN/apexm"
+fi
+
 cd "$TEST10_PKG"
-TEST10_OUT=$(APEX_SEARCH_PATH="$TEST10_ROOT" PKG_CONFIG_PATH="" "$MAKEAPEX_BIN" --config "$TEST10_CONF" --noarchive -f 2>&1)
+TEST10_OUT=$(PATH="$TEST10_BIN:$PATH" APEX_SEARCH_PATH="$TEST10_ROOT" PKG_CONFIG_PATH="" "$MAKEAPEX_BIN" --config "$TEST10_CONF" --noarchive -f 2>&1)
 echo "$TEST10_OUT"
 
 if echo "$TEST10_OUT" | grep -q "Unmet make dependencies:"; then
