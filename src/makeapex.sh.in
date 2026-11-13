@@ -83,7 +83,13 @@ SPLITPKG=0
 SOURCEONLY=0
 VERIFYSOURCE=0
 
-export ANDROID_HOME=${ANDROID_HOME:-"$HOME/Android/Sdk"}
+if [[ -z "$ANDROID_HOME" || ! -d "$ANDROID_HOME" ]]; then
+	if [[ -d "/opt/android-sdk" ]]; then
+		export ANDROID_HOME="/opt/android-sdk"
+	else
+		export ANDROID_HOME="$HOME/Android/Sdk"
+	fi
+fi
 MAKEAPEX_LINT_APEXBUILD=${MAKEAPEX_LINT_APEXBUILD:-1}
 
 PACMAN_OPTS=()
