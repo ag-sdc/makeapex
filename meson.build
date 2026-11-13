@@ -82,6 +82,10 @@ test('test_android_toolchain',
   BASH,
   args : [ join_paths(meson.project_source_root(), 'tests/test_android_toolchain.sh') ])
 
+test('test_empty_payload',
+  BASH,
+  args : [ join_paths(meson.project_source_root(), 'tests/test_empty_payload.sh') ])
+
 custom_target(
   'makeapex.conf',
   input : 'src/makeapex.conf.in',
