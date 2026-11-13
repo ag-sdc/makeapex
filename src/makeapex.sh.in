@@ -928,6 +928,20 @@ create_package() {
 		exit "$E_MISSING_PKGDIR"
 	fi
 
+	# Guard against stub-only packages where package() staged no real payload files
+	# (i.e. only makeapex-synthesized _libdummy.so, libdummy_*.so, and linker.config.json exist).
+	local _real_payload=""
+	_real_payload=$(find "$pkgdirprefix" \( -type f -o -type l \) \
+		! -name '_libdummy.so' \
+		! -name 'libdummy_*.so' \
+		! -path "$pkgdirprefix/etc/linker.config.json" \
+		-print -quit 2>/dev/null)
+	if [[ -z "$_real_payload" ]]; then
+		error "$(gettext "APEX payload for '%s' is empty (no files staged beyond stub linkerconfig/%s).")" "$pkgname" "_libdummy.so"
+		plainerr "$(gettext "Aborting...")"
+		exit "$E_PACKAGE_FAILED"
+	fi
+
 	cd_safe "$startdir"
 	msg "$(gettext "Creating APEX package \"%s\"...")" "$pkgname"
 
@@ -1048,7 +1062,7 @@ create_package() {
 		@PROTOC@ -I="$proto_dir" --encode=apex.proto.ApexManifest apex_manifest.proto <"$pkgnamedir/apex_manifest.pb.txt" >"$pkgnamedir/apex_manifest.pb" || exit 1
 	fi
 
-	local ANDROID_SDK="$ANDROID_HOME"
+	local ANDROID_SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/opt/android-sdk}}"
 
 	local ANDROID_JAR
 	ANDROID_JAR="$(find "$ANDROID_SDK"/platforms -iname "android-${api}*" -print -quit 2>/dev/null)/android.jar"
