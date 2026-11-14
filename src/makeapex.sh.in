@@ -518,6 +518,9 @@ check_buildtime_deps_non_android() {
 					if in_array "--noconfirm" "${PACMAN_OPTS[@]}"; then
 						cmd+=("--noconfirm")
 					fi
+					if in_array "--noprogressbar" "${PACMAN_OPTS[@]}"; then
+						cmd+=("--noprogressbar")
+					fi
 					cmd+=("${_batch[@]}")
 					if ((${#PACMAN_AUTH[@]})); then
 						if in_array '%c' "${PACMAN_AUTH[@]}"; then
@@ -596,6 +599,12 @@ handle_deps() {
 			fi
 			if [[ -z "$APEX_INSTALL_SKIP_ABI_LEVEL_OVERRIDE" ]]; then
 				cmd+=("--skip-abi-level=3")
+			fi
+			if in_array "--noconfirm" "${PACMAN_OPTS[@]}"; then
+				cmd+=("--noconfirm")
+			fi
+			if in_array "--noprogressbar" "${PACMAN_OPTS[@]}"; then
+				cmd+=("--noprogressbar")
 			fi
 			cmd+=("${deplist[@]}")
 			if ((${#PACMAN_AUTH[@]})); then
@@ -1537,7 +1546,7 @@ usage() {
 	# shellcheck disable=SC2059
 	printf -- "$(gettext "  --needed         Do not reinstall the targets that are already up to date")\n"
 	# shellcheck disable=SC2059
-	printf -- "$(gettext "  --noconfirm      Do not ask for confirmation when resolving dependencies")\n"
+	printf -- "$(gettext "  -y, --noconfirm  Do not ask for confirmation when resolving dependencies")\n"
 	# shellcheck disable=SC2059
 	printf -- "$(gettext "  --noprogressbar  Do not show a progress bar when downloading files")\n"
 	echo
@@ -1583,7 +1592,7 @@ fi
 ARGLIST=("$@")
 
 # Parse Command Line Options.
-OPT_SHORT="AcCdD:efFghiLmop:rRsSV"
+OPT_SHORT="AcCdD:efFghiLmop:rRsSVy"
 OPT_LONG=('allsource' 'check' 'clean' 'cleanbuild' 'config:' 'dir:' 'force' 'geninteg'
 	'help' 'holdver' 'ignorearch' 'install' 'key:' 'log' 'noarchive' 'nobuild'
 	'nocolor' 'nocheck' 'nodeps' 'noextract' 'noprepare' 'nosign' 'packagelist'
@@ -1607,7 +1616,7 @@ while true; do
 	# Pacman Options
 	--asdeps) ASDEPS=1 ;;
 	--needed) NEEDED=1 ;;
-	--noconfirm) PACMAN_OPTS+=("--noconfirm") ;;
+	-y | --noconfirm) PACMAN_OPTS+=("--noconfirm") ;;
 	--noprogressbar) PACMAN_OPTS+=("--noprogressbar") ;;
 
 	# apexm Options

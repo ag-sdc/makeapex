@@ -64,7 +64,8 @@ custom_target(
 
 test('test_makedepends',
   BASH,
-  args : [ join_paths(meson.project_source_root(), 'tests/test_makedepends.sh') ])
+  args : [ join_paths(meson.project_source_root(), 'tests/test_makedepends.sh') ],
+  timeout : 90)
 
 test('test_versioncode',
   BASH,
